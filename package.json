@@ -34,6 +34,7 @@
     "@openrouter/ai-sdk-provider": "^2.9.1",
     "@react-router/dev": "8.1.0",
     "@react-router/fs-routes": "8.1.0",
+    "@supabase/server": "^1.9.2",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.118.0",
     "@tabler/icons-react": "3.44.0",
