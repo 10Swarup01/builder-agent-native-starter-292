@@ -14,7 +14,7 @@ import { AsyncContent, LoadingState } from "@/components/waste/states";
 import { StatsCard } from "@/components/waste/StatsCard";
 import { useServiceData } from "@/hooks/use-service-data";
 import { DEMO_SAVED_LOCATIONS } from "@/lib/mock-data";
-import { getCurrentUser } from "@/services/auth";
+import { getCurrentUser, signOutOfApp } from "@/services/auth";
 import { listAuthorities } from "@/services/authorities";
 import { listReports } from "@/services/reports";
 
@@ -38,12 +38,16 @@ export default function ProfileRoute() {
           <>
             <Card className="flex flex-col items-center gap-5 rounded-3xl border-border/70 p-6 text-center shadow-sm sm:flex-row sm:text-left">
               <div className="relative">
-                <span className="flex size-20 items-center justify-center rounded-full bg-accent text-2xl font-semibold text-brand" aria-hidden="true">
-                  {user.data.name
-                    .split(" ")
-                    .map((part) => part[0])
-                    .slice(0, 2)
-                    .join("")}
+                <span className="flex size-20 items-center justify-center overflow-hidden rounded-full bg-accent text-2xl font-semibold text-brand" aria-hidden="true">
+                  {user.data.avatarUrl ? (
+                    <img src={user.data.avatarUrl} alt="" className="size-full object-cover" />
+                  ) : (
+                    user.data.name
+                      .split(" ")
+                      .map((part) => part[0])
+                      .slice(0, 2)
+                      .join("")
+                  )}
                 </span>
                 <span className="absolute -bottom-1 -right-1 flex size-8 items-center justify-center rounded-full bg-card text-brand shadow ring-1 ring-border" aria-hidden="true">
                   <IconCamera size={16} />
@@ -52,7 +56,7 @@ export default function ProfileRoute() {
               <div className="min-w-0 flex-1 space-y-1">
                 <h2 className="text-xl font-semibold text-foreground">{user.data.name}</h2>
                 <p className="text-sm text-muted-foreground">{user.data.email}</p>
-                <p className="text-sm text-muted-foreground">{user.data.phone}</p>
+                {user.data.phone ? <p className="text-sm text-muted-foreground">{user.data.phone}</p> : null}
               </div>
               <Button variant="outline" className="min-h-11" onClick={() => toast.info("Profile photo upload will connect to Supabase Storage later.")}>
                 Change photo
@@ -158,7 +162,7 @@ export default function ProfileRoute() {
         </Card>
       </section>
 
-      <Button variant="outline" className="min-h-12 w-full text-danger hover:text-danger sm:w-auto" onClick={() => toast.info("Sign out will connect to Supabase Auth later.")}>
+      <Button variant="outline" className="min-h-12 w-full text-danger hover:text-danger sm:w-auto" onClick={() => void signOutOfApp()}>
         <IconLogout size={18} aria-hidden="true" />
         Logout
       </Button>

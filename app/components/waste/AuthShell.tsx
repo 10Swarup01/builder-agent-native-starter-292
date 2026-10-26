@@ -16,7 +16,6 @@ export function AuthShell({ title, description, children }: { title: string; des
         </header>
         {children}
       </Card>
-      <p className="mt-6 max-w-sm text-center text-xs text-muted-foreground">Authentication is not connected yet. Sign-in will be added with Supabase Auth.</p>
     </main>
   );
 }
