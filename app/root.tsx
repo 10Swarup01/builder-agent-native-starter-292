@@ -32,7 +32,7 @@ export const links: LinksFunction = () => [
 const THEME_INIT_SCRIPT = getThemeInitScript();
 
 // Must match the auth pages that render without a session in app/routes.
-const PUBLIC_PATHS = ["/login", "/signup", "/forgot-password", "/reset-password", "/auth/callback"];
+const PUBLIC_PATHS = ["/login", "/signup", "/forgot-password", "/reset-password", "/confirm"];
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (

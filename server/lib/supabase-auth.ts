@@ -3,8 +3,8 @@ import { createServerClient, parseCookieHeader } from "@supabase/ssr";
 import { getHeader, setCookie, type H3Event } from "h3";
 
 function requireSupabaseEnv() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL; // guard:allow-env-credential — public Supabase project URL, shipped to browsers by design.
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY; // guard:allow-env-credential — public Supabase anon key, shipped to browsers by design.
   if (!url || !anonKey) {
     throw new Error("NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY must be set.");
   }

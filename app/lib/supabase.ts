@@ -9,7 +9,7 @@ export function getSupabaseBrowserClient(): SupabaseClient {
   if (!url || !anonKey) {
     throw new Error("Supabase is not configured: NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY must be set.");
   }
-  // Codes are exchanged explicitly on /auth/callback, so the client must not consume them on load.
+  // Codes are exchanged explicitly on /confirm, so the client must not consume them on load.
   client ??= createBrowserClient(url, anonKey, { auth: { detectSessionInUrl: false } });
   return client;
 }

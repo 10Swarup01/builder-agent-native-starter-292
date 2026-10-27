@@ -56,7 +56,7 @@ export async function getCurrentUser(): Promise<CurrentUser> {
 }
 
 function callbackUrl(next: string) {
-  return `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
+  return `${window.location.origin}/confirm?next=${encodeURIComponent(next)}`;
 }
 
 function describeAuthError(message: string) {
