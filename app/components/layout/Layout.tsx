@@ -11,7 +11,7 @@ interface LayoutProps {
   children: React.ReactNode;
 }
 
-const FULL_SCREEN_PREFIXES = ["/admin", "/login", "/signup"];
+const FULL_SCREEN_PREFIXES = ["/admin", "/login", "/signup", "/forgot-password", "/reset-password", "/confirm"];
 
 export function Layout({ children }: LayoutProps) {
   const { pathname } = useLocation();

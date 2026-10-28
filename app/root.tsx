@@ -4,9 +4,10 @@ import { useDbSync } from "@agent-native/core/client/hooks";
 import { createAgentNativeQueryClient } from "@agent-native/core/client/hooks";
 import { getThemeInitScript } from "@agent-native/core/client/ui";
 import { AppProviders } from "@agent-native/toolkit/app/providers";
+import { ClientOnly } from "@agent-native/toolkit/app/shared";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
+import { Links, Meta, Outlet, Scripts, ScrollRestoration, useLocation } from "react-router";
 import type { LinksFunction } from "react-router";
 
 import { Layout as AppLayout } from "@/components/layout/Layout";
@@ -29,6 +30,9 @@ export const links: LinksFunction = () => [
 ];
 
 const THEME_INIT_SCRIPT = getThemeInitScript();
+
+// Must match the auth pages that render without a session in app/routes.
+const PUBLIC_PATHS = ["/login", "/signup", "/forgot-password", "/reset-password", "/confirm"];
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -77,10 +81,14 @@ function DbSyncSetup() {
 
 export default function Root() {
   const [queryClient] = useState(() => createAgentNativeQueryClient());
+  const { pathname } = useLocation();
+  const isPublicPath = PUBLIC_PATHS.includes(pathname);
   return (
     <AppToolkitProvider>
-      <AppProviders queryClient={queryClient}>
-        <DbSyncSetup />
+      <AppProviders queryClient={queryClient} isPublicPath={isPublicPath}>
+        <ClientOnly>
+          <DbSyncSetup />
+        </ClientOnly>
         <AppLayout>
           <Outlet />
         </AppLayout>
