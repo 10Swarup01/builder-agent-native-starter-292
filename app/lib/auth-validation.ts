@@ -19,6 +19,11 @@ export const signupSchema = z.object({
   password: passwordSchema,
 });
 
+export const profileSchema = z.object({
+  name: z.string().trim().min(1, { error: "Enter your name." }),
+  phone: z.string().trim(),
+});
+
 export function firstIssueMessage(error: z.ZodError) {
   return error.issues[0]?.message ?? "Check the form and try again.";
 }

@@ -1,5 +1,5 @@
 import { IconBell, IconBookmark, IconCamera, IconCircleCheck, IconClipboardList, IconLogout, IconMapPin, IconSettings, IconClock } from "@tabler/icons-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
 
@@ -13,8 +13,9 @@ import { ReportCard } from "@/components/waste/ReportCard";
 import { AsyncContent, LoadingState } from "@/components/waste/states";
 import { StatsCard } from "@/components/waste/StatsCard";
 import { useServiceData } from "@/hooks/use-service-data";
+import { firstIssueMessage, profileSchema } from "@/lib/auth-validation";
 import { DEMO_SAVED_LOCATIONS } from "@/lib/mock-data";
-import { getCurrentUser, signOutOfApp } from "@/services/auth";
+import { getCurrentUser, signOutOfApp, updateCurrentProfile } from "@/services/auth";
 import { listAuthorities } from "@/services/authorities";
 import { listReports } from "@/services/reports";
 
@@ -28,6 +29,34 @@ export default function ProfileRoute() {
   const authorities = useServiceData(listAuthorities);
   const [pushAlerts, setPushAlerts] = useState(true);
   const [emailUpdates, setEmailUpdates] = useState(false);
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (user.data) {
+      setName(user.data.name);
+      setPhone(user.data.phone);
+    }
+  }, [user.data]);
+
+  async function handleSaveAccount() {
+    const parsed = profileSchema.safeParse({ name, phone });
+    if (!parsed.success) {
+      toast.error(firstIssueMessage(parsed.error));
+      return;
+    }
+    setSaving(true);
+    try {
+      await updateCurrentProfile(parsed.data);
+      toast.success("Your changes were saved to your profile.");
+      user.retry();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not save your profile. Try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -147,15 +176,15 @@ export default function ProfileRoute() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="account-name">Name</Label>
-              <Input id="account-name" defaultValue={user.data?.name ?? ""} className="min-h-11" />
+              <Input id="account-name" value={name} onChange={(event) => setName(event.target.value)} className="min-h-11" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="account-phone">Phone</Label>
-              <Input id="account-phone" defaultValue={user.data?.phone ?? ""} className="min-h-11" />
+              <Input id="account-phone" value={phone} onChange={(event) => setPhone(event.target.value)} className="min-h-11" />
             </div>
           </div>
           <div className="flex justify-end">
-            <Button className="min-h-11" onClick={() => toast.success("Changes saved locally. Account saving will connect to Supabase Auth later.")}>
+            <Button className="min-h-11" onClick={() => void handleSaveAccount()} disabled={saving || !user.data}>
               Save changes
             </Button>
           </div>

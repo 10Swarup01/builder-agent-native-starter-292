@@ -2,14 +2,14 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
 
-import { AuthShell, GoogleMark } from "@/components/waste/AuthShell";
+import { AuthShell } from "@/components/waste/AuthShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { afterSignInPath } from "@/lib/auth-navigation";
 import { firstIssueMessage, loginSchema } from "@/lib/auth-validation";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
-import { signInWithGoogle, signInWithPassword } from "@/services/auth";
+import { signInWithPassword } from "@/services/auth";
 
 export function meta() {
   return [{ title: "Login · WasteWise AI" }];
@@ -48,14 +48,6 @@ export default function LoginRoute() {
     }
   }
 
-  async function handleGoogle() {
-    try {
-      await signInWithGoogle();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Google sign-in is unavailable right now.");
-    }
-  }
-
   return (
     <AuthShell title="Welcome back" description="Sign in to report waste and track your problems.">
       <form className="space-y-4" onSubmit={handleSubmit}>
@@ -77,16 +69,7 @@ export default function LoginRoute() {
         </Button>
       </form>
 
-      <div className="relative text-center">
-        <span className="absolute inset-x-0 top-1/2 h-px bg-border" aria-hidden="true" />
-        <span className="relative bg-card px-3 text-xs uppercase tracking-wider text-muted-foreground">or</span>
-      </div>
-
       <div className="space-y-3">
-        <Button variant="outline" size="lg" className="min-h-12 w-full gap-3" onClick={handleGoogle}>
-          <GoogleMark />
-          Continue with Google
-        </Button>
         <Button asChild variant="ghost" size="lg" className="min-h-12 w-full">
           <Link to="/">Continue as Guest</Link>
         </Button>

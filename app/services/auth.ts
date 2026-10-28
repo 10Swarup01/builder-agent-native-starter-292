@@ -55,6 +55,22 @@ export async function getCurrentUser(): Promise<CurrentUser> {
   };
 }
 
+export async function updateCurrentProfile({ name, phone }: { name: string; phone: string }) {
+  const supabase = getSupabaseBrowserClient();
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData.user) {
+    throw new Error("You are not signed in.");
+  }
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .update({ full_name: name, phone: phone || null })
+    .eq("id", userData.user.id)
+    .select("id");
+  if (error) throw new Error(error.message);
+  if (!data || data.length === 0) throw new Error("Your profile could not be updated. Try again.");
+}
+
 function callbackUrl(next: string) {
   return `${window.location.origin}/confirm?next=${encodeURIComponent(next)}`;
 }
@@ -79,14 +95,6 @@ export async function signUpWithPassword({ name, email, password }: { name: stri
   });
   if (error) throw new Error(describeAuthError(error.message));
   return { needsEmailConfirmation: data.session === null };
-}
-
-export async function signInWithGoogle() {
-  const { error } = await getSupabaseBrowserClient().auth.signInWithOAuth({
-    provider: "google",
-    options: { redirectTo: callbackUrl("/") },
-  });
-  if (error) throw new Error(describeAuthError(error.message));
 }
 
 export async function requestPasswordReset(email: string) {
