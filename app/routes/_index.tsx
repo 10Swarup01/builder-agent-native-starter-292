@@ -10,7 +10,6 @@ import { useServiceData } from "@/hooks/use-service-data";
 import { formatCount } from "@/lib/format";
 import { APP_TAGLINE, APP_TITLE } from "@/lib/app-config";
 import { WASTE_CATEGORIES } from "@/lib/waste";
-import { listAuthorities } from "@/services/authorities";
 import { listReports, summarizeReports } from "@/services/reports";
 
 export function meta() {
@@ -22,7 +21,6 @@ export function meta() {
 
 export default function HomeRoute() {
   const reports = useServiceData(listReports);
-  const authorities = useServiceData(listAuthorities);
 
   const recent = [...(reports.data ?? [])]
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
@@ -90,11 +88,7 @@ export default function HomeRoute() {
         <AsyncContent loading={reports.loading} error={reports.error} onRetry={reports.retry}>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {recent.map((report) => (
-              <ReportCard
-                key={report.id}
-                report={report}
-                authorityName={authorities.data?.find((authority) => authority.id === report.authorityId)?.name}
-              />
+              <ReportCard key={report.id} report={report} />
             ))}
           </div>
         </AsyncContent>

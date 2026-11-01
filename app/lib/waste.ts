@@ -97,7 +97,7 @@ export interface WasteReport {
   afterImageUrl?: string;
   category: WasteCategoryId;
   aiConfidence: number;
-  severity: Severity;
+  severity: Severity | null;
   status: ReportStatus;
   description: string;
   quantity: WasteQuantity;
@@ -107,6 +107,11 @@ export interface WasteReport {
   authorityId: string;
   createdAt: string;
   resolvedAt?: string;
+}
+
+export function formatReportLocation(location: ReportLocation): string {
+  const parts = [location.address, location.area, location.ward].filter((part) => part.trim() !== "");
+  return parts.length > 0 ? parts.join(", ") : "Location not provided";
 }
 
 export interface WasteAnalysis {

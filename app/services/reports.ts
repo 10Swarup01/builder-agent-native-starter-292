@@ -64,7 +64,7 @@ async function toWasteReports(rows: ReportRow[]): Promise<WasteReport[]> {
       imageUrl: original ? urls.get(original.image_url) : undefined,
       category: categoryIdFromName(row.waste_categories?.name),
       aiConfidence: 0,
-      severity: row.severity ?? "medium",
+      severity: row.severity,
       status: row.status,
       description: row.description ?? "",
       quantity: row.quantity ?? "medium",
@@ -150,33 +150,26 @@ export async function submitReport(input: NewReportInput): Promise<WasteReport> 
   if (userError || !userData.user) throw new Error("Your session has expired. Please sign in again.");
 
   const categoryId = await resolveCategoryId(input.category);
-  const { data: inserted, error: insertError } = await supabase
-    .from("reports")
-    .insert({
-      category_id: categoryId,
-      description: input.description,
-      quantity: input.quantity,
-      duration: input.durationLabel,
-      blocking_traffic: input.blockingTraffic,
-      sensitive_locations: input.sensitiveLocations,
-      latitude: input.location.latitude,
-      longitude: input.location.longitude,
-      address: input.location.address,
-    })
-    .select("id, report_number, created_at")
-    .single();
-  if (insertError || !inserted) throw new Error("Report insert failed.");
-
-  const { error: imageError } = await supabase.from("report_images").insert({
-    report_id: inserted.id,
-    image_url: input.imagePath,
-    image_type: "original",
+  const { data, error } = await supabase.rpc("submit_waste_report", {
+    p_category_id: categoryId,
+    p_description: input.description,
+    p_quantity: input.quantity,
+    p_duration: input.durationLabel,
+    p_blocking_traffic: input.blockingTraffic,
+    p_sensitive_locations: input.sensitiveLocations,
+    p_latitude: input.location.latitude,
+    p_longitude: input.location.longitude,
+    p_address: input.location.address,
+    p_image_path: input.imagePath,
   });
-  if (imageError) throw new Error("Report image link failed.");
+  const inserted = Array.isArray(data) ? data[0] : undefined;
+  if (error || !inserted?.report_id || !inserted.report_number || !inserted.created_at) {
+    throw new Error("Your waste report could not be saved. Please try again.");
+  }
 
   const [report] = await toWasteReports([
     {
-      id: inserted.id,
+      id: inserted.report_id,
       report_number: inserted.report_number,
       category_id: categoryId,
       description: input.description,

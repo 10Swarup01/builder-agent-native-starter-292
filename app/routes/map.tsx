@@ -13,7 +13,7 @@ import { PageHeader } from "@/components/waste/PageHeader";
 import { AsyncContent, LoadingState } from "@/components/waste/states";
 import { useServiceData } from "@/hooks/use-service-data";
 import { formatDate } from "@/lib/format";
-import { getCategory, type Severity, type WasteCategoryId, type WasteReport } from "@/lib/waste";
+import { formatReportLocation, getCategory, type Severity, type WasteCategoryId, type WasteReport } from "@/lib/waste";
 import { listReports } from "@/services/reports";
 
 export function meta() {
@@ -188,7 +188,7 @@ function ReportPreview({ report, onClose }: { report: WasteReport; onClose: () =
       <dl className="space-y-2 text-sm">
         <div>
           <dt className="text-xs text-muted-foreground">Location</dt>
-          <dd className="text-foreground">{report.location.address}, {report.location.area}</dd>
+          <dd className="text-foreground">{formatReportLocation(report.location)}</dd>
         </div>
         <div>
           <dt className="text-xs text-muted-foreground">Reported</dt>

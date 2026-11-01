@@ -7,7 +7,7 @@ import { AsyncContent, EmptyState, LoadingState } from "@/components/waste/state
 import { Card } from "@/components/ui/card";
 import { useServiceData } from "@/hooks/use-service-data";
 import { formatDate, formatHours } from "@/lib/format";
-import { listAuthorities } from "@/services/authorities";
+import { formatReportLocation } from "@/lib/waste";
 import { listResolvedReports } from "@/services/reports";
 
 export function meta() {
@@ -16,7 +16,6 @@ export function meta() {
 
 export default function ResolvedRoute() {
   const reports = useServiceData(listResolvedReports);
-  const authorities = useServiceData(listAuthorities);
 
   return (
     <div>
@@ -25,7 +24,6 @@ export default function ResolvedRoute() {
         {reports.data && reports.data.length === 0 ? <EmptyState title="No resolved problems yet" description="Resolved reports will appear here with before and after photos." /> : null}
         <div className="grid gap-6 xl:grid-cols-2">
           {(reports.data ?? []).map((report) => {
-            const authority = authorities.data?.find((item) => item.id === report.authorityId);
             const resolutionHours = report.resolvedAt
               ? Math.round((new Date(report.resolvedAt).getTime() - new Date(report.createdAt).getTime()) / 3600000)
               : null;
@@ -42,7 +40,7 @@ export default function ResolvedRoute() {
                 <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
                   <div>
                     <dt className="text-xs text-muted-foreground">Location</dt>
-                    <dd className="font-medium text-foreground">{report.location.area}, {report.location.ward}</dd>
+                    <dd className="font-medium text-foreground">{formatReportLocation(report.location)}</dd>
                   </div>
                   <div>
                     <dt className="text-xs text-muted-foreground">Report ID</dt>
@@ -62,7 +60,7 @@ export default function ResolvedRoute() {
                   </div>
                   <div>
                     <dt className="text-xs text-muted-foreground">Responsible authority</dt>
-                    <dd className="text-foreground">{authority?.name ?? "Unassigned"}</dd>
+                    <dd className="text-foreground">Assignment pending</dd>
                   </div>
                 </dl>
               </Card>

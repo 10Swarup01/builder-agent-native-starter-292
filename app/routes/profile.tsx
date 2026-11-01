@@ -16,7 +16,6 @@ import { useServiceData } from "@/hooks/use-service-data";
 import { firstIssueMessage, profileSchema } from "@/lib/auth-validation";
 import { DEMO_SAVED_LOCATIONS } from "@/lib/mock-data";
 import { getCurrentUser, signOutOfApp, updateCurrentProfile } from "@/services/auth";
-import { listAuthorities } from "@/services/authorities";
 import { listOwnReports } from "@/services/reports";
 
 export function meta() {
@@ -26,7 +25,6 @@ export function meta() {
 export default function ProfileRoute() {
   const user = useServiceData(getCurrentUser);
   const reports = useServiceData(listOwnReports);
-  const authorities = useServiceData(listAuthorities);
   const [pushAlerts, setPushAlerts] = useState(true);
   const [emailUpdates, setEmailUpdates] = useState(false);
   const [name, setName] = useState("");
@@ -116,7 +114,6 @@ export default function ProfileRoute() {
               <ReportCard
                 key={report.id}
                 report={report}
-                authorityName={authorities.data?.find((authority) => authority.id === report.authorityId)?.name}
               />
             ))}
           </div>

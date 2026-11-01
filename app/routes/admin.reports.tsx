@@ -16,7 +16,7 @@ import { AsyncContent, LoadingState } from "@/components/waste/states";
 import { WastePhoto } from "@/components/waste/WastePhoto";
 import { useServiceData } from "@/hooks/use-service-data";
 import { formatDate } from "@/lib/format";
-import { getCategory, type WasteReport } from "@/lib/waste";
+import { formatReportLocation, getCategory, type WasteReport } from "@/lib/waste";
 import { listAuthorities } from "@/services/authorities";
 import { listReports } from "@/services/reports";
 
@@ -66,7 +66,7 @@ export default function AdminReportsRoute() {
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase();
     return (reports.data ?? []).filter((report) =>
-      !term || [report.reportNumber, report.location.ward, getCategory(report.category).label].join(" ").toLowerCase().includes(term),
+      !term || [report.reportNumber, formatReportLocation(report.location), getCategory(report.category).label].join(" ").toLowerCase().includes(term),
     );
   }, [reports.data, query]);
 
@@ -127,12 +127,12 @@ export default function AdminReportsRoute() {
                     <CategoryBadge category={report.category} />
                   </TableCell>
                   <TableCell className="max-w-48 text-sm">
-                    {report.location.area}, {report.location.ward}
+                    {formatReportLocation(report.location)}
                   </TableCell>
                   <TableCell>
                     <SeverityBadge severity={report.severity} />
                   </TableCell>
-                  <TableCell className="tabular-nums">{report.aiConfidence}%</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">Not assessed</TableCell>
                   <TableCell className="max-w-40 truncate text-sm">{authorityName(report.authorityId)}</TableCell>
                   <TableCell>
                     <StatusBadge status={report.status} />
@@ -161,13 +161,13 @@ export default function AdminReportsRoute() {
                     <StatusBadge status={report.status} />
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    {report.location.area}, {report.location.ward}
+                    {formatReportLocation(report.location)}
                   </p>
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
                 <SeverityBadge severity={report.severity} />
-                <span className="text-xs text-muted-foreground">AI {report.aiConfidence}% · {authorityName(report.authorityId)}</span>
+                <span className="text-xs text-muted-foreground">{authorityName(report.authorityId)}</span>
               </div>
               <ReportActions report={report} onAction={openAction} />
             </Card>

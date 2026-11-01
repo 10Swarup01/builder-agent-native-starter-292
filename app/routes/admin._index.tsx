@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useServiceData } from "@/hooks/use-service-data";
 import { formatCount, formatDate } from "@/lib/format";
+import { formatReportLocation } from "@/lib/waste";
 import { listReports, summarizeReports } from "@/services/reports";
 
 export function meta() {
@@ -57,7 +58,7 @@ export default function AdminDashboardRoute() {
                   <SeverityBadge severity={report.severity} />
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  {report.location.address}, {report.location.ward} · {formatDate(report.createdAt)}
+                  {formatReportLocation(report.location)} · {formatDate(report.createdAt)}
                 </p>
               </Card>
             ))}

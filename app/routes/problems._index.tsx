@@ -8,7 +8,6 @@ import { ReportCard } from "@/components/waste/ReportCard";
 import { Input } from "@/components/ui/input";
 import { useServiceData } from "@/hooks/use-service-data";
 import { getCategory, type ReportStatus, type Severity, type WasteCategoryId, type WasteReport } from "@/lib/waste";
-import { listAuthorities } from "@/services/authorities";
 import { listReports } from "@/services/reports";
 
 export function meta() {
@@ -57,7 +56,6 @@ function matchesType(report: WasteReport, filter: TypeFilter) {
 
 export default function ProblemsRoute() {
   const reports = useServiceData(listReports);
-  const authorities = useServiceData(listAuthorities);
   const [query, setQuery] = useState("");
   const [type, setType] = useState<TypeFilter>("all");
   const [status, setStatus] = useState<StatusFilter>("all");
@@ -107,7 +105,7 @@ export default function ProblemsRoute() {
 
       <AsyncContent loading={reports.loading} error={reports.error} onRetry={reports.retry}>
         {filtered.length === 0 ? (
-          <EmptyState title="🎉 No active waste problems in this area." description="Try clearing a filter or searching a different area." />
+          <EmptyState title="No active waste problems right now." description="Try clearing a filter or searching a different area." />
         ) : (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground" aria-live="polite">
@@ -115,11 +113,7 @@ export default function ProblemsRoute() {
             </p>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {filtered.map((report) => (
-                <ReportCard
-                  key={report.id}
-                  report={report}
-                  authorityName={authorities.data?.find((authority) => authority.id === report.authorityId)?.name}
-                />
+                <ReportCard key={report.id} report={report} />
               ))}
             </div>
           </div>

@@ -9,7 +9,7 @@ export interface MapMarker {
   label: string;
   latitude: number;
   longitude: number;
-  severity: Severity;
+  severity: Severity | null;
   status: ReportStatus;
 }
 
@@ -28,7 +28,7 @@ function fromMapPercent(xPercent: number, yPercent: number) {
   };
 }
 
-export function markerColor(severity: Severity, status: ReportStatus) {
+export function markerColor(severity: Severity | null, status: ReportStatus) {
   if (status === "resolved") return "bg-success text-white";
   if (severity === "critical") return "bg-danger text-white";
   if (severity === "high") return "bg-danger/85 text-white";

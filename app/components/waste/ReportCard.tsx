@@ -4,7 +4,7 @@ import { Link } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { formatDate } from "@/lib/format";
-import { getCategory, type WasteReport } from "@/lib/waste";
+import { formatReportLocation, getCategory, type WasteReport } from "@/lib/waste";
 
 import { CategoryBadge, SeverityBadge, StatusBadge } from "./badges";
 import { WastePhoto } from "./WastePhoto";
@@ -32,7 +32,7 @@ export function ReportCard({ report, authorityName }: ReportCardProps) {
         <h3 className="text-base font-semibold text-foreground">{category.label}</h3>
         <p className="flex items-start gap-1.5 text-sm text-muted-foreground">
           <IconMapPin size={16} className="mt-0.5 shrink-0 text-brand" aria-hidden="true" />
-          <span>{report.location.address}, {report.location.area}</span>
+          <span>{formatReportLocation(report.location)}</span>
         </p>
         <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
           <div>
@@ -44,15 +44,9 @@ export function ReportCard({ report, authorityName }: ReportCardProps) {
             <dd className="text-foreground">{formatDate(report.createdAt)}</dd>
           </div>
           <div>
-            <dt className="text-xs text-muted-foreground">AI confidence</dt>
-            <dd className="text-foreground">{report.aiConfidence}%</dd>
+            <dt className="text-xs text-muted-foreground">Authority</dt>
+            <dd className="truncate text-foreground">{authorityName ?? "Assignment pending"}</dd>
           </div>
-          {authorityName ? (
-            <div>
-              <dt className="text-xs text-muted-foreground">Authority</dt>
-              <dd className="truncate text-foreground">{authorityName}</dd>
-            </div>
-          ) : null}
         </dl>
         <Button asChild variant="outline" className="mt-auto min-h-11 w-full">
           <Link to={`/problems/${report.reportNumber}`} aria-label={`View details for report ${report.reportNumber}`}>

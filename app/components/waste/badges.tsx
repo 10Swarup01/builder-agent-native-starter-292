@@ -30,7 +30,10 @@ const SEVERITY_ICON: Record<Severity, typeof IconInfoCircle> = {
   critical: IconAlertOctagon,
 };
 
-export function SeverityBadge({ severity, className }: { severity: Severity; className?: string }) {
+export function SeverityBadge({ severity, className }: { severity: Severity | null; className?: string }) {
+  if (!severity) {
+    return <span className={cn(pillClass, "bg-muted text-muted-foreground border-border", className)}>Not assessed</span>;
+  }
   const meta = SEVERITY_META[severity];
   const Icon = SEVERITY_ICON[severity];
   return (

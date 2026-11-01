@@ -32,7 +32,7 @@ export function WastePhoto({ category, src, alt, tone = "waste", className }: Wa
           <Icon size={28} aria-hidden="true" className={isClean ? "text-brand" : "text-muted-foreground"} />
         </span>
         <span className="text-xs font-medium">{isClean ? "Cleaned area" : `${meta.shortLabel} photo`}</span>
-        <span className="text-[10px] uppercase tracking-wide opacity-70">Demo image</span>
+        <span className="text-[10px] uppercase tracking-wide opacity-70">Photo not available</span>
       </div>
     </div>
   );
