@@ -31,7 +31,8 @@ export type ReportStatus =
   | "classified"
   | "assigned"
   | "in_progress"
-  | "resolved";
+  | "resolved"
+  | "rejected";
 
 export type WasteQuantity = "small" | "medium" | "large" | "very_large";
 
@@ -73,6 +74,7 @@ export const STATUS_META: Record<ReportStatus, { label: string; className: strin
   assigned: { label: "Assigned", className: "bg-chart-6/15 text-chart-6 border-chart-6/30" },
   in_progress: { label: "In Progress", className: "bg-warning/15 text-warning border-warning/40" },
   resolved: { label: "Resolved", className: "bg-success/10 text-success border-success/30" },
+  rejected: { label: "Rejected", className: "bg-danger/10 text-danger border-danger/30" },
 };
 
 export const QUANTITY_OPTIONS: { value: WasteQuantity; label: string }[] = [
@@ -103,10 +105,18 @@ export interface WasteReport {
   quantity: WasteQuantity;
   detectedItems: string[];
   blockingTraffic: boolean;
+  durationLabel?: string;
+  sensitiveLocations?: string[];
   location: ReportLocation;
   authorityId: string;
   createdAt: string;
   resolvedAt?: string;
+}
+
+export interface ReportStatusEntry {
+  status: ReportStatus;
+  note: string | null;
+  createdAt: string;
 }
 
 export function formatReportLocation(location: ReportLocation): string {
@@ -140,4 +150,5 @@ export interface TimelineEvent {
   label: string;
   time: string;
   state: "done" | "current" | "pending";
+  note?: string;
 }

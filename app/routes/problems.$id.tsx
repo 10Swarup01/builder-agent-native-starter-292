@@ -9,20 +9,32 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useServiceData } from "@/hooks/use-service-data";
 import { formatDate, formatTime } from "@/lib/format";
-import { formatReportLocation, getCategory, type WasteReport } from "@/lib/waste";
-import { getReport } from "@/services/reports";
+import { QUANTITY_OPTIONS, formatReportLocation, getCategory, type ReportStatusEntry, type WasteReport } from "@/lib/waste";
+import { getReport, getReportStatusHistory } from "@/services/reports";
 
 export function meta() {
-  return [{ title: "Report Details · WasteWise AI" }];
+  return [{ title: "Track Report · WasteWise AI" }];
+}
+
+interface ReportDetailData {
+  report: WasteReport;
+  history: ReportStatusEntry[];
+}
+
+async function loadReportDetail(reportNumber: string): Promise<ReportDetailData | null> {
+  const report = await getReport(reportNumber);
+  if (!report) return null;
+  const history = await getReportStatusHistory(report.id);
+  return { report, history };
 }
 
 export default function ProblemDetailRoute() {
   const { id = "" } = useParams();
-  const report = useServiceData(() => getReport(id), [id]);
+  const detail = useServiceData(() => loadReportDetail(id), [id]);
 
   return (
-    <AsyncContent loading={report.loading} error={report.error} onRetry={report.retry} skeleton={<LoadingState variant="detail" />}>
-      {!report.data ? (
+    <AsyncContent loading={detail.loading} error={detail.error} onRetry={detail.retry} skeleton={<LoadingState variant="detail" />}>
+      {!detail.data ? (
         <EmptyState
           title="Report not found"
           description={`We could not find a report with ID ${id}.`}
@@ -33,20 +45,27 @@ export default function ProblemDetailRoute() {
           }
         />
       ) : (
-        <ReportDetail report={report.data} />
+        <ReportDetail report={detail.data.report} history={detail.data.history} />
       )}
     </AsyncContent>
   );
 }
 
-function ReportDetail({ report }: { report: WasteReport }) {
+function ReportDetail({ report, history }: { report: WasteReport; history: ReportStatusEntry[] }) {
   const category = getCategory(report.category);
   const CategoryIcon = category.icon;
+  const quantityLabel = QUANTITY_OPTIONS.find((option) => option.value === report.quantity)?.label ?? report.quantity;
+  const sensitiveLocations = report.sensitiveLocations ?? [];
   const items: { label: string; value: React.ReactNode }[] = [
     { label: "Waste Type", value: category.label },
+    { label: "Quantity", value: quantityLabel },
+    { label: "Duration", value: report.durationLabel || "Not specified" },
     { label: "Severity", value: <SeverityBadge severity={report.severity} /> },
-    { label: "Location", value: formatReportLocation(report.location) },
-    { label: "Reported", value: `${formatDate(report.createdAt)} · ${formatTime(report.createdAt)}` },
+    { label: "Address", value: formatReportLocation(report.location) },
+    { label: "Coordinates", value: `${report.location.latitude.toFixed(5)}, ${report.location.longitude.toFixed(5)}` },
+    { label: "Sensitive locations", value: sensitiveLocations.length > 0 ? sensitiveLocations.join(", ") : "None recorded" },
+    { label: "Submitted", value: `${formatDate(report.createdAt)} · ${formatTime(report.createdAt)}` },
+    ...(report.resolvedAt ? [{ label: "Resolved", value: `${formatDate(report.resolvedAt)} · ${formatTime(report.resolvedAt)}` }] : []),
     { label: "Authority", value: "Assignment pending" },
     { label: "Status", value: <StatusBadge status={report.status} /> },
   ];
@@ -96,14 +115,14 @@ function ReportDetail({ report }: { report: WasteReport }) {
               {items.map((item) => (
                 <div key={item.label} className="grid grid-cols-[9rem_1fr] gap-3 py-3 first:pt-0 last:pb-0">
                   <dt className="text-sm text-muted-foreground">{item.label}</dt>
-                  <dd className="text-sm font-medium text-foreground">{item.value}</dd>
+                  <dd className="min-w-0 break-words text-sm font-medium text-foreground">{item.value}</dd>
                 </div>
               ))}
             </dl>
           </Card>
           <Card className="rounded-2xl border-border/70 p-5 shadow-sm">
             <h2 className="mb-5 text-base font-semibold text-foreground">Report Timeline</h2>
-            <ReportTimeline events={buildReportTimeline(report)} />
+            <ReportTimeline events={buildReportTimeline(report, history)} />
           </Card>
         </div>
       </div>

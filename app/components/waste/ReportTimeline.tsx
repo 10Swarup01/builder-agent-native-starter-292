@@ -2,34 +2,45 @@ import { IconCheck, IconCircleDashed, IconLoader2 } from "@tabler/icons-react";
 
 import { formatDayTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { ReportStatus, TimelineEvent, WasteReport } from "@/lib/waste";
+import type { ReportStatus, ReportStatusEntry, TimelineEvent, WasteReport } from "@/lib/waste";
 
-const STATUS_STAGE: Record<ReportStatus, number> = {
-  reported: 1,
-  classified: 2,
-  assigned: 3,
-  in_progress: 4,
-  resolved: 5,
-};
+const STAGES: { status: ReportStatus; label: string }[] = [
+  { status: "reported", label: "Reported" },
+  { status: "classified", label: "Classified" },
+  { status: "assigned", label: "Assigned" },
+  { status: "in_progress", label: "In Progress" },
+  { status: "resolved", label: "Resolved" },
+];
 
-const MINUTE = 60 * 1000;
-const HOUR = 60 * MINUTE;
-
-export function buildReportTimeline(report: WasteReport): TimelineEvent[] {
-  const submitted = new Date(report.createdAt).getTime();
-  const milestones = [
-    { label: "Report Submitted", at: submitted },
-    { label: "AI Classified", at: submitted + MINUTE },
-    { label: "Assigned to Authority", at: submitted + 30 * MINUTE },
-    { label: "In Progress", at: submitted + 22.5 * HOUR },
-    { label: "Resolved", at: report.resolvedAt ? new Date(report.resolvedAt).getTime() : null },
-  ];
-  const reached = STATUS_STAGE[report.status];
-  return milestones.map((milestone, index) => {
-    const state: TimelineEvent["state"] = index < reached ? "done" : index === reached ? "current" : "pending";
-    const time = state === "done" && milestone.at ? formatDayTime(new Date(milestone.at).toISOString()) : "Pending";
-    return { label: milestone.label, time, state };
+export function buildReportTimeline(report: WasteReport, history: ReportStatusEntry[]): TimelineEvent[] {
+  const reachedIndex = STAGES.findIndex((stage) => stage.status === report.status);
+  const events: TimelineEvent[] = STAGES.map((stage, index) => {
+    const entry = history.find((item) => item.status === stage.status);
+    const at = stage.status === "reported" ? report.createdAt : stage.status === "resolved" ? report.resolvedAt : entry?.createdAt;
+    const state: TimelineEvent["state"] =
+      index < reachedIndex || (report.status === "resolved" && index === reachedIndex)
+        ? "done"
+        : index === reachedIndex
+          ? "current"
+          : "pending";
+    return {
+      label: stage.label,
+      state,
+      time: state === "pending" ? "Pending" : at ? formatDayTime(at) : "Date not available",
+      note: entry?.note ?? undefined,
+    };
   });
+
+  if (report.status === "rejected") {
+    const entry = history.find((item) => item.status === "rejected");
+    events.push({
+      label: "Rejected",
+      state: "current",
+      time: entry ? formatDayTime(entry.createdAt) : "Date not available",
+      note: entry?.note ?? undefined,
+    });
+  }
+  return events;
 }
 
 export function ReportTimeline({ events }: { events: TimelineEvent[] }) {
@@ -59,9 +70,9 @@ export function ReportTimeline({ events }: { events: TimelineEvent[] }) {
             </span>
             <div className="min-w-0 pt-1.5">
               <p className="font-medium text-foreground">{event.label}</p>
-              <p className="text-sm text-muted-foreground">
-                {event.state === "current" ? "Current stage" : event.time}
-              </p>
+              <p className="text-sm text-muted-foreground">{event.time}</p>
+              {event.state === "current" ? <p className="text-xs font-medium text-warning">Current stage</p> : null}
+              {event.note ? <p className="text-sm text-muted-foreground">{event.note}</p> : null}
             </div>
           </li>
         );

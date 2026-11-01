@@ -8,7 +8,7 @@ import { ReportCard } from "@/components/waste/ReportCard";
 import { Input } from "@/components/ui/input";
 import { useServiceData } from "@/hooks/use-service-data";
 import { getCategory, type ReportStatus, type Severity, type WasteCategoryId, type WasteReport } from "@/lib/waste";
-import { listReports } from "@/services/reports";
+import { listActiveReports } from "@/services/reports";
 
 export function meta() {
   return [{ title: "Active Problems · WasteWise AI" }];
@@ -55,7 +55,7 @@ function matchesType(report: WasteReport, filter: TypeFilter) {
 }
 
 export default function ProblemsRoute() {
-  const reports = useServiceData(listReports);
+  const reports = useServiceData(listActiveReports);
   const [query, setQuery] = useState("");
   const [type, setType] = useState<TypeFilter>("all");
   const [status, setStatus] = useState<StatusFilter>("all");
@@ -64,7 +64,6 @@ export default function ProblemsRoute() {
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase();
     return (reports.data ?? [])
-      .filter((report) => report.status !== "resolved")
       .filter((report) => matchesType(report, type))
       .filter((report) => status === "all" || report.status === status)
       .filter((report) => severity === "all" || report.severity === severity)

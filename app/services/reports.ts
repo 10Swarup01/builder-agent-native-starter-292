@@ -1,6 +1,16 @@
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { REPORT_IMAGE_BUCKET } from "@/services/report-images";
-import { getCategory, WASTE_CATEGORIES, type ReportLocation, type ReportStatus, type Severity, type WasteCategoryId, type WasteQuantity, type WasteReport } from "@/lib/waste";
+import {
+  getCategory,
+  WASTE_CATEGORIES,
+  type ReportLocation,
+  type ReportStatus,
+  type ReportStatusEntry,
+  type Severity,
+  type WasteCategoryId,
+  type WasteQuantity,
+  type WasteReport,
+} from "@/lib/waste";
 
 export interface NewReportInput {
   category: WasteCategoryId;
@@ -29,12 +39,14 @@ interface ReportRow {
   status: ReportStatus;
   created_at: string;
   resolved_at: string | null;
+  duration: string | null;
+  sensitive_locations: string[] | null;
   waste_categories: { name: string } | null;
   report_images: { image_url: string; image_type: string | null }[];
 }
 
 const REPORT_SELECT =
-  "id, report_number, category_id, description, quantity, blocking_traffic, latitude, longitude, address, severity, status, created_at, resolved_at, waste_categories(name), report_images(image_url, image_type)";
+  "id, report_number, category_id, description, quantity, blocking_traffic, latitude, longitude, address, severity, status, created_at, resolved_at, duration, sensitive_locations, waste_categories(name), report_images(image_url, image_type)";
 
 function categoryIdFromName(name: string | null | undefined): WasteCategoryId {
   return (["plastic", "household", "medical", "chemical", "liquid", "ewaste", "glass", "metal", "organic", "mixed"] as const).find(
@@ -58,10 +70,12 @@ async function toWasteReports(rows: ReportRow[]): Promise<WasteReport[]> {
   const urls = await signedImageUrls(imagePaths);
   return rows.map((row) => {
     const original = row.report_images.find((image) => image.image_type === "original") ?? row.report_images[0];
+    const resolution = row.report_images.find((image) => image.image_type === "resolution");
     return {
       id: row.id,
       reportNumber: row.report_number,
       imageUrl: original ? urls.get(original.image_url) : undefined,
+      afterImageUrl: resolution ? urls.get(resolution.image_url) : undefined,
       category: categoryIdFromName(row.waste_categories?.name),
       aiConfidence: 0,
       severity: row.severity,
@@ -70,6 +84,8 @@ async function toWasteReports(rows: ReportRow[]): Promise<WasteReport[]> {
       quantity: row.quantity ?? "medium",
       detectedItems: [],
       blockingTraffic: row.blocking_traffic,
+      durationLabel: row.duration ?? undefined,
+      sensitiveLocations: row.sensitive_locations ?? [],
       location: {
         address: row.address ?? "",
         area: "",
@@ -129,9 +145,44 @@ export function summarizeReports(reports: WasteReport[]) {
   return { totalReports, activeProblems, inProgress, resolved, resolutionRate, categoryCounts };
 }
 
+export async function listActiveReports(): Promise<WasteReport[]> {
+  const { data, error } = await getSupabaseBrowserClient()
+    .from("reports")
+    .select(REPORT_SELECT)
+    .not("status", "in", "(resolved,rejected)")
+    .order("created_at", { ascending: false });
+  if (error) throw new Error("Could not load active waste problems.");
+  return toWasteReports((data ?? []) as unknown as ReportRow[]);
+}
+
 export async function listResolvedReports(): Promise<WasteReport[]> {
-  const reports = await listReports();
-  return reports.filter((report) => report.status === "resolved");
+  const { data, error } = await getSupabaseBrowserClient()
+    .from("reports")
+    .select(REPORT_SELECT)
+    .eq("status", "resolved")
+    .order("resolved_at", { ascending: false });
+  if (error) throw new Error("Could not load resolved waste problems.");
+  return toWasteReports((data ?? []) as unknown as ReportRow[]);
+}
+
+interface StatusHistoryRow {
+  new_status: ReportStatus;
+  note: string | null;
+  created_at: string;
+}
+
+export async function getReportStatusHistory(reportId: string): Promise<ReportStatusEntry[]> {
+  const { data, error } = await getSupabaseBrowserClient()
+    .from("report_status_history")
+    .select("new_status, note, created_at")
+    .eq("report_id", reportId)
+    .order("created_at", { ascending: true });
+  if (error) throw new Error("Could not load the report timeline.");
+  return ((data ?? []) as unknown as StatusHistoryRow[]).map((row) => ({
+    status: row.new_status,
+    note: row.note,
+    createdAt: row.created_at,
+  }));
 }
 
 async function resolveCategoryId(category: WasteCategoryId): Promise<number> {
@@ -175,6 +226,8 @@ export async function submitReport(input: NewReportInput): Promise<WasteReport> 
       description: input.description,
       quantity: input.quantity,
       blocking_traffic: input.blockingTraffic,
+      duration: input.durationLabel,
+      sensitive_locations: input.sensitiveLocations,
       latitude: input.location.latitude,
       longitude: input.location.longitude,
       address: input.location.address,
