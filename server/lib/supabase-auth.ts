@@ -37,3 +37,9 @@ export async function getSupabaseSession(event: H3Event): Promise<AuthSession | 
     emailVerified: Boolean(data.user.email_confirmed_at),
   };
 }
+
+export async function getSupabaseAdminAccess(event: H3Event): Promise<"signed-out" | "forbidden" | "admin"> {
+  const { data, error } = await createSupabaseServerClient(event).auth.getUser();
+  if (error || !data.user) return "signed-out";
+  return data.user.app_metadata?.role === "admin" ? "admin" : "forbidden";
+}
