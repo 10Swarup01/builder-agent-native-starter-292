@@ -34,6 +34,17 @@ export async function uploadReportImage(file: File): Promise<string> {
     contentType: file.type,
     upsert: false,
   });
-  if (error) throw new Error("Photo upload failed.");
+  if (error) {
+    console.error("[report-images] upload rejected", {
+      bucket: REPORT_IMAGE_BUCKET,
+      host: new URL(import.meta.env.NEXT_PUBLIC_SUPABASE_URL).host,
+      contentType: file.type,
+      sizeBytes: file.size,
+      pathShape: path.split("/").length,
+      message: error.message,
+      name: error.name,
+    });
+    throw new Error("Photo upload failed.");
+  }
   return path;
 }
