@@ -1,24 +1,31 @@
-import { IconCamera, IconPhoto, IconRefresh, IconTrash, IconUpload } from "@tabler/icons-react";
+import { IconCamera, IconCircleCheck, IconLoader2, IconPhoto, IconRefresh, IconTrash, IconUpload } from "@tabler/icons-react";
 import { useRef, useState, type DragEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+const PHOTO_ACCEPT = ".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp";
+
+export type PhotoUploadState = "idle" | "uploading" | "done" | "error";
+
 interface ImageUploaderProps {
   previewUrl: string | null;
   scanning: boolean;
+  uploadState: PhotoUploadState;
+  photoError: string | null;
   onSelect: (file: File) => void;
   onRemove: () => void;
+  onRetryUpload: () => void;
 }
 
-export function ImageUploader({ previewUrl, scanning, onSelect, onRemove }: ImageUploaderProps) {
+export function ImageUploader({ previewUrl, scanning, uploadState, photoError, onSelect, onRemove, onRetryUpload }: ImageUploaderProps) {
   const cameraInput = useRef<HTMLInputElement>(null);
   const galleryInput = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
   const handleFiles = (files: FileList | null) => {
     const file = files?.[0];
-    if (file && file.type.startsWith("image/")) onSelect(file);
+    if (file) onSelect(file);
   };
 
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
@@ -32,7 +39,7 @@ export function ImageUploader({ previewUrl, scanning, onSelect, onRemove }: Imag
       <input
         ref={cameraInput}
         type="file"
-        accept="image/*"
+        accept={PHOTO_ACCEPT}
         capture="environment"
         className="sr-only"
         aria-label="Take a photo with the camera"
@@ -45,7 +52,7 @@ export function ImageUploader({ previewUrl, scanning, onSelect, onRemove }: Imag
       <input
         ref={galleryInput}
         type="file"
-        accept="image/*"
+        accept={PHOTO_ACCEPT}
         className="sr-only"
         aria-label="Upload an image from your gallery"
         tabIndex={-1}
@@ -73,6 +80,27 @@ export function ImageUploader({ previewUrl, scanning, onSelect, onRemove }: Imag
               Remove Image
             </Button>
           </div>
+          {uploadState === "uploading" ? (
+            <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground">
+              <IconLoader2 size={18} className="animate-spin" aria-hidden="true" />
+              Uploading your photo...
+            </p>
+          ) : null}
+          {uploadState === "done" ? (
+            <p role="status" className="flex items-center gap-2 text-sm text-success">
+              <IconCircleCheck size={18} aria-hidden="true" />
+              Photo uploaded. You can continue.
+            </p>
+          ) : null}
+          {uploadState === "error" ? (
+            <div className="flex flex-col gap-3 rounded-xl bg-danger/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <p role="alert" className="text-sm text-danger">{photoError}</p>
+              <Button variant="outline" className="min-h-11 shrink-0" onClick={onRetryUpload}>
+                <IconRefresh size={18} aria-hidden="true" />
+                Try Upload Again
+              </Button>
+            </div>
+          ) : null}
         </div>
       ) : (
         <div
@@ -106,6 +134,9 @@ export function ImageUploader({ previewUrl, scanning, onSelect, onRemove }: Imag
           </div>
         </div>
       )}
+      {photoError && uploadState !== "error" ? (
+        <p role="alert" className="rounded-xl bg-danger/10 px-4 py-3 text-sm text-danger">{photoError}</p>
+      ) : null}
     </div>
   );
 }
