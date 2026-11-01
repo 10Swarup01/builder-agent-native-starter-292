@@ -27,12 +27,11 @@ export function AIAnalyzingCard() {
 
 interface AIResultCardProps {
   analysis: WasteAnalysis;
-  confirmDisabled?: boolean;
   onConfirm: () => void;
   onChangeCategory: () => void;
 }
 
-export function AIResultCard({ analysis, confirmDisabled = false, onConfirm, onChangeCategory }: AIResultCardProps) {
+export function AIResultCard({ analysis, onConfirm, onChangeCategory }: AIResultCardProps) {
   return (
     <Card className="animate-fade-up space-y-5 rounded-2xl border-border/70 p-5 shadow-sm lg:p-6">
       <h2 className="flex items-center gap-2 text-base font-semibold text-foreground">
@@ -61,7 +60,7 @@ export function AIResultCard({ analysis, confirmDisabled = false, onConfirm, onC
         </ul>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
-        <Button size="lg" className="min-h-12" onClick={onConfirm} disabled={confirmDisabled}>
+        <Button size="lg" className="min-h-12" onClick={onConfirm}>
           <IconCheck size={18} aria-hidden="true" />
           Confirm Classification
         </Button>

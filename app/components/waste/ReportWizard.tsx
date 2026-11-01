@@ -11,13 +11,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { getCategory, QUANTITY_OPTIONS, type ReportLocation, type WasteAnalysis, type WasteCategoryId, type WasteQuantity, type WasteReport } from "@/lib/waste";
 import { cn } from "@/lib/utils";
 import { analyzeWasteImage } from "@/services/ai";
-import { uploadReportImage, validateReportImage } from "@/services/report-images";
 import { submitReport } from "@/services/reports";
 
 import { AIAnalyzingCard, AIResultCard } from "./AIResultCard";
 import { CategoryBadge, SeverityBadge, StatusBadge } from "./badges";
 import { CategorySelector } from "./CategorySelector";
-import { ImageUploader, type PhotoUploadState } from "./ImageUploader";
+import { ImageUploader } from "./ImageUploader";
 import { LocationPicker } from "./LocationPicker";
 import { ErrorState } from "./states";
 
@@ -43,11 +42,7 @@ export function ReportWizard() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(false);
   const [submitted, setSubmitted] = useState<WasteReport | null>(null);
-  const [uploadState, setUploadState] = useState<PhotoUploadState>("idle");
-  const [uploadedPath, setUploadedPath] = useState<string | null>(null);
-  const [photoError, setPhotoError] = useState<string | null>(null);
   const analysisRun = useRef(0);
-  const uploadRun = useRef(0);
 
   const previewUrl = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
   useEffect(() => {
@@ -74,48 +69,18 @@ export function ReportWizard() {
     );
   };
 
-  const runUpload = (selected: File) => {
-    const run = ++uploadRun.current;
-    setUploadState("uploading");
-    setUploadedPath(null);
-    setPhotoError(null);
-    uploadReportImage(selected).then(
-      (path) => {
-        if (run !== uploadRun.current) return;
-        setUploadedPath(path);
-        setUploadState("done");
-      },
-      (error: unknown) => {
-        if (run !== uploadRun.current) return;
-        setPhotoError(error instanceof Error ? error.message : "Your photo could not be uploaded. Please try again.");
-        setUploadState("error");
-      },
-    );
-  };
-
   const handleSelectImage = (selected: File) => {
-    void validateReportImage(selected).then((problem) => {
-      if (problem) {
-        setPhotoError(problem);
-        return;
-      }
-      setFile(selected);
-      runAnalysis(selected);
-      runUpload(selected);
-    });
+    setFile(selected);
+    runAnalysis(selected);
   };
 
   const handleRemoveImage = () => {
     analysisRun.current++;
-    uploadRun.current++;
     setFile(null);
     setAnalysis(null);
     setAnalysisState("idle");
     setCategory(null);
     setChangingCategory(false);
-    setUploadState("idle");
-    setUploadedPath(null);
-    setPhotoError(null);
   };
 
   const handleSubmit = async (event?: FormEvent) => {
@@ -146,12 +111,8 @@ export function ReportWizard() {
 
   const resetWizard = () => {
     analysisRun.current++;
-    uploadRun.current++;
     setStep(1);
     setFile(null);
-    setUploadState("idle");
-    setUploadedPath(null);
-    setPhotoError(null);
     setAnalysis(null);
     setAnalysisState("idle");
     setCategory(null);
@@ -210,7 +171,7 @@ export function ReportWizard() {
   }
 
   const selectedCategory = category ? getCategory(category) : null;
-  const canContinueFromPhoto = uploadedPath !== null && (analysisState === "done" || (analysisState === "error" && category !== null));
+  const canContinueFromPhoto = analysisState === "done" || (analysisState === "error" && category !== null);
 
   return (
     <div className="space-y-6">
@@ -249,15 +210,7 @@ export function ReportWizard() {
           <h2 id="step-photo" className="sr-only">
             Upload image
           </h2>
-          <ImageUploader
-            previewUrl={previewUrl}
-            scanning={analysisState === "analyzing"}
-            uploadState={uploadState}
-            photoError={photoError}
-            onSelect={handleSelectImage}
-            onRemove={handleRemoveImage}
-            onRetryUpload={() => file && runUpload(file)}
-          />
+          <ImageUploader previewUrl={previewUrl} scanning={analysisState === "analyzing"} onSelect={handleSelectImage} onRemove={handleRemoveImage} />
 
           {analysisState === "analyzing" ? <AIAnalyzingCard /> : null}
 
@@ -271,7 +224,6 @@ export function ReportWizard() {
           {analysisState === "done" && analysis && selectedCategory ? (
             <AIResultCard
               analysis={{ ...analysis, category: selectedCategory.id }}
-              confirmDisabled={!canContinueFromPhoto}
               onConfirm={() => setStep(2)}
               onChangeCategory={() => setChangingCategory((open) => !open)}
             />
