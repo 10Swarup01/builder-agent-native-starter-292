@@ -9,28 +9,28 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useServiceData } from "@/hooks/use-service-data";
 import { formatCount, formatDate } from "@/lib/format";
-import { getReportStats, listReports } from "@/services/reports";
+import { listReports, summarizeReports } from "@/services/reports";
 
 export function meta() {
   return [{ title: "Admin Dashboard · WasteWise AI" }];
 }
 
 export default function AdminDashboardRoute() {
-  const stats = useServiceData(getReportStats);
   const reports = useServiceData(listReports);
   const attention = (reports.data ?? []).filter((report) => report.status === "reported" || report.severity === "critical").slice(0, 4);
+  const stats = reports.data ? summarizeReports(reports.data) : null;
 
   return (
     <div className="space-y-8">
-      <PageHeader title="Dashboard" description="Totals, assignments and resolutions across all wards." icon={IconLayoutDashboard} demo />
+      <PageHeader title="Dashboard" description="Totals and resolutions across all reports." icon={IconLayoutDashboard} />
 
-      <AsyncContent loading={stats.loading} error={stats.error} onRetry={stats.retry} skeleton={<LoadingState variant="stats" />}>
-        {stats.data ? (
+      <AsyncContent loading={reports.loading} error={reports.error} onRetry={reports.retry} skeleton={<LoadingState variant="stats" />}>
+        {stats ? (
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <StatsCard label="Total Reports" value={formatCount(stats.data.totalReports)} icon={IconSum} />
-            <StatsCard label="Active" value={formatCount(stats.data.activeProblems)} icon={IconAlertTriangle} tone="warning" />
-            <StatsCard label="In Progress" value={formatCount(stats.data.inProgress)} icon={IconClock} tone="info" />
-            <StatsCard label="Resolved" value={formatCount(stats.data.resolved)} icon={IconCircleCheck} tone="success" />
+            <StatsCard label="Total Reports" value={formatCount(stats.totalReports)} icon={IconSum} />
+            <StatsCard label="Active" value={formatCount(stats.activeProblems)} icon={IconAlertTriangle} tone="warning" />
+            <StatsCard label="In Progress" value={formatCount(stats.inProgress)} icon={IconClock} tone="info" />
+            <StatsCard label="Resolved" value={formatCount(stats.resolved)} icon={IconCircleCheck} tone="success" />
           </div>
         ) : null}
       </AsyncContent>

@@ -17,7 +17,7 @@ import { firstIssueMessage, profileSchema } from "@/lib/auth-validation";
 import { DEMO_SAVED_LOCATIONS } from "@/lib/mock-data";
 import { getCurrentUser, signOutOfApp, updateCurrentProfile } from "@/services/auth";
 import { listAuthorities } from "@/services/authorities";
-import { listReports } from "@/services/reports";
+import { listOwnReports } from "@/services/reports";
 
 export function meta() {
   return [{ title: "My Profile · WasteWise AI" }];
@@ -25,7 +25,7 @@ export function meta() {
 
 export default function ProfileRoute() {
   const user = useServiceData(getCurrentUser);
-  const reports = useServiceData(listReports);
+  const reports = useServiceData(listOwnReports);
   const authorities = useServiceData(listAuthorities);
   const [pushAlerts, setPushAlerts] = useState(true);
   const [emailUpdates, setEmailUpdates] = useState(false);

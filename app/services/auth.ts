@@ -2,6 +2,7 @@ import { signOut as endAppSession } from "@agent-native/core/client";
 
 import { DEMO_USERS } from "@/lib/mock-data";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
+import { listOwnReports, summarizeReports } from "@/services/reports";
 
 import { demoLatency } from "./demo";
 
@@ -42,6 +43,8 @@ export async function getCurrentUser(): Promise<CurrentUser> {
     throw new Error(profileError.message);
   }
 
+  const ownReports = summarizeReports(await listOwnReports());
+
   return {
     id: user.id,
     name: profile.full_name || user.email,
@@ -49,9 +52,9 @@ export async function getCurrentUser(): Promise<CurrentUser> {
     phone: profile.phone ?? "",
     avatarUrl: profile.avatar_url,
     role: "citizen",
-    reportsSubmitted: 0,
-    activeReports: 0,
-    resolvedReports: 0,
+    reportsSubmitted: ownReports.totalReports,
+    activeReports: ownReports.activeProblems,
+    resolvedReports: ownReports.resolved,
   };
 }
 

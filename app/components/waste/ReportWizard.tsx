@@ -8,31 +8,28 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { getCategory, QUANTITY_OPTIONS, type ReportLocation, type WasteAnalysis, type WasteCategoryId, type WasteQuantity, type WasteReport } from "@/lib/waste";
+import { getCategory, QUANTITY_OPTIONS, type ReportLocation, type WasteCategoryId, type WasteQuantity, type WasteReport } from "@/lib/waste";
 import { cn } from "@/lib/utils";
-import { analyzeWasteImage } from "@/services/ai";
 import { submitReport } from "@/services/reports";
+import { uploadReportImage, validateReportImage } from "@/services/report-images";
 
-import { AIAnalyzingCard, AIResultCard } from "./AIResultCard";
-import { CategoryBadge, SeverityBadge, StatusBadge } from "./badges";
+import { CategoryBadge, StatusBadge } from "./badges";
 import { CategorySelector } from "./CategorySelector";
-import { ImageUploader } from "./ImageUploader";
+import { ImageUploader, type PhotoUploadState } from "./ImageUploader";
 import { LocationPicker } from "./LocationPicker";
-import { ErrorState } from "./states";
 
 const STEPS = ["Photo & AI", "Location", "Details", "Review"];
 const SENSITIVE_OPTIONS = ["School", "Hospital", "Residential area", "Water body", "Market", "Other"];
 const DURATION_OPTIONS = ["Less than 1 day", "1–3 days", "3–7 days", "More than 1 week", "Unknown"];
-
-type AnalysisState = "idle" | "analyzing" | "done" | "error";
+const SUBMIT_ERROR_MESSAGE = "Your waste report could not be submitted. Please try again.";
 
 export function ReportWizard() {
   const [step, setStep] = useState(1);
   const [file, setFile] = useState<File | null>(null);
-  const [analysis, setAnalysis] = useState<WasteAnalysis | null>(null);
-  const [analysisState, setAnalysisState] = useState<AnalysisState>("idle");
+  const [uploadState, setUploadState] = useState<PhotoUploadState>("idle");
+  const [uploadedPath, setUploadedPath] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
   const [category, setCategory] = useState<WasteCategoryId | null>(null);
-  const [changingCategory, setChangingCategory] = useState(false);
   const [location, setLocation] = useState<ReportLocation | null>(null);
   const [description, setDescription] = useState("");
   const [quantity, setQuantity] = useState<WasteQuantity>("medium");
@@ -42,7 +39,8 @@ export function ReportWizard() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(false);
   const [submitted, setSubmitted] = useState<WasteReport | null>(null);
-  const analysisRun = useRef(0);
+  const uploadRun = useRef(0);
+  const submitInFlight = useRef(false);
 
   const previewUrl = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
   useEffect(() => {
@@ -51,72 +49,82 @@ export function ReportWizard() {
     };
   }, [previewUrl]);
 
-  const runAnalysis = (selected: File) => {
-    const run = ++analysisRun.current;
-    setAnalysisState("analyzing");
-    setAnalysis(null);
-    setChangingCategory(false);
-    analyzeWasteImage(selected).then(
-      (result) => {
-        if (run !== analysisRun.current) return;
-        setAnalysis(result);
-        setCategory(result.category);
-        setAnalysisState("done");
+  const startUpload = (selected: File) => {
+    const run = ++uploadRun.current;
+    setUploadState("uploading");
+    setUploadedPath(null);
+    setPhotoError(null);
+    uploadReportImage(selected).then(
+      (path) => {
+        if (run !== uploadRun.current) return;
+        setUploadedPath(path);
+        setUploadState("done");
       },
-      () => {
-        if (run === analysisRun.current) setAnalysisState("error");
+      (error: unknown) => {
+        if (run !== uploadRun.current) return;
+        setPhotoError(error instanceof Error ? error.message : "Photo upload failed. Please try again.");
+        setUploadState("error");
       },
     );
   };
 
   const handleSelectImage = (selected: File) => {
+    const validationError = validateReportImage(selected);
+    if (validationError) {
+      uploadRun.current++;
+      setFile(null);
+      setUploadedPath(null);
+      setPhotoError(validationError);
+      setUploadState("error");
+      return;
+    }
     setFile(selected);
-    runAnalysis(selected);
+    startUpload(selected);
   };
 
   const handleRemoveImage = () => {
-    analysisRun.current++;
+    uploadRun.current++;
     setFile(null);
-    setAnalysis(null);
-    setAnalysisState("idle");
-    setCategory(null);
-    setChangingCategory(false);
+    setUploadedPath(null);
+    setPhotoError(null);
+    setUploadState("idle");
   };
 
   const handleSubmit = async (event?: FormEvent) => {
     event?.preventDefault();
-    if (!category || !location) return;
+    if (submitInFlight.current || !category || !location || !uploadedPath) return;
+    submitInFlight.current = true;
     setSubmitting(true);
     setSubmitError(false);
     try {
       const report = await submitReport({
         category,
-        aiConfidence: analysis?.confidence ?? 0,
-        severity: analysis?.severity ?? "medium",
-        detectedItems: analysis?.detectedItems ?? [],
         description,
         quantity,
         durationLabel: duration || "Unknown",
         blockingTraffic,
         sensitiveLocations: sensitive,
         location,
+        imagePath: uploadedPath,
       });
       setSubmitted(report);
-    } catch {
+    } catch (error) {
+      console.error("Waste report submission failed", error);
       setSubmitError(true);
     } finally {
+      submitInFlight.current = false;
       setSubmitting(false);
     }
   };
 
   const resetWizard = () => {
-    analysisRun.current++;
+    uploadRun.current++;
     setStep(1);
     setFile(null);
-    setAnalysis(null);
-    setAnalysisState("idle");
+    setUploadState("idle");
+    setUploadedPath(null);
+    setPhotoError(null);
     setCategory(null);
-    setChangingCategory(false);
     setLocation(null);
     setDescription("");
     setQuantity("medium");
@@ -171,7 +179,7 @@ export function ReportWizard() {
   }
 
   const selectedCategory = category ? getCategory(category) : null;
-  const canContinueFromPhoto = analysisState === "done" || (analysisState === "error" && category !== null);
+  const canContinueFromPhoto = uploadState === "done" && uploadedPath !== null && category !== null;
 
   return (
     <div className="space-y-6">
@@ -210,40 +218,34 @@ export function ReportWizard() {
           <h2 id="step-photo" className="sr-only">
             Upload image
           </h2>
-          <ImageUploader previewUrl={previewUrl} scanning={analysisState === "analyzing"} onSelect={handleSelectImage} onRemove={handleRemoveImage} />
+          <ImageUploader
+            previewUrl={previewUrl}
+            uploadState={uploadState}
+            photoError={photoError}
+            onSelect={handleSelectImage}
+            onRemove={handleRemoveImage}
+            onRetry={() => file && startUpload(file)}
+          />
 
-          {analysisState === "analyzing" ? <AIAnalyzingCard /> : null}
-
-          {analysisState === "error" && file ? (
-            <div className="space-y-4">
-              <ErrorState onRetry={() => runAnalysis(file)} />
-              <p className="text-sm text-muted-foreground">You can also choose the waste type yourself.</p>
-            </div>
+          {!file && photoError ? (
+            <p role="alert" className="rounded-xl bg-danger/10 px-4 py-3 text-sm text-danger">
+              {photoError}
+            </p>
           ) : null}
 
-          {analysisState === "done" && analysis && selectedCategory ? (
-            <AIResultCard
-              analysis={{ ...analysis, category: selectedCategory.id }}
-              onConfirm={() => setStep(2)}
-              onChangeCategory={() => setChangingCategory((open) => !open)}
-            />
-          ) : null}
-
-          {changingCategory || analysisState === "error" ? (
+          {file ? (
             <Card className="space-y-4 rounded-2xl border-border/70 p-5 shadow-sm">
               <div>
                 <h3 className="text-base font-semibold text-foreground">Choose the waste category</h3>
-                <p className="text-sm text-muted-foreground">Correct the AI result if it does not match what you see.</p>
+                <p className="text-sm text-muted-foreground">Pick the type of waste shown in your photo.</p>
               </div>
               <CategorySelector value={category} onChange={setCategory} />
-              {analysisState === "error" ? (
-                <div className="flex justify-end">
-                  <Button size="lg" className="min-h-12" disabled={!canContinueFromPhoto} onClick={() => setStep(2)}>
-                    Continue
-                    <IconArrowRight size={18} aria-hidden="true" />
-                  </Button>
-                </div>
-              ) : null}
+              <div className="flex justify-end">
+                <Button size="lg" className="min-h-12" disabled={!canContinueFromPhoto} onClick={() => setStep(2)}>
+                  Continue
+                  <IconArrowRight size={18} aria-hidden="true" />
+                </Button>
+              </div>
             </Card>
           ) : null}
         </section>
@@ -376,17 +378,7 @@ export function ReportWizard() {
               <dl className="grid gap-4 text-sm sm:grid-cols-2">
                 <div>
                   <dt className="text-xs font-medium text-muted-foreground">Waste category</dt>
-                  <dd className="mt-1">{category ? <CategoryBadge category={category} /> : "Not set"}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs font-medium text-muted-foreground">AI confidence</dt>
-                  <dd className="mt-1 font-medium text-foreground">{analysis ? `${analysis.confidence}%` : "Manual selection"}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs font-medium text-muted-foreground">Severity</dt>
-                  <dd className="mt-1">
-                    <SeverityBadge severity={analysis?.severity ?? "medium"} />
-                  </dd>
+                  <dd className="mt-1">{selectedCategory ? <CategoryBadge category={selectedCategory.id} /> : "Not set"}</dd>
                 </div>
                 <div>
                   <dt className="text-xs font-medium text-muted-foreground">Quantity</dt>
@@ -394,9 +386,7 @@ export function ReportWizard() {
                 </div>
                 <div className="sm:col-span-2">
                   <dt className="text-xs font-medium text-muted-foreground">Location</dt>
-                  <dd className="mt-1 text-foreground">
-                    {location ? `${location.address}, ${location.area}, ${location.ward}` : "Not set"}
-                  </dd>
+                  <dd className="mt-1 text-foreground">{location ? location.address : "Not set"}</dd>
                 </div>
                 <div className="sm:col-span-2">
                   <dt className="text-xs font-medium text-muted-foreground">Description</dt>
@@ -416,11 +406,11 @@ export function ReportWizard() {
 
           {submitError ? (
             <p role="alert" className="rounded-xl bg-danger/10 px-4 py-3 text-sm text-danger">
-              We could not submit your report. Please try again.
+              {SUBMIT_ERROR_MESSAGE}
             </p>
           ) : null}
 
-          <Button size="lg" className="min-h-14 w-full text-base" onClick={() => handleSubmit()} disabled={submitting || !category || !location}>
+          <Button size="lg" className="min-h-14 w-full text-base" onClick={() => handleSubmit()} disabled={submitting || !category || !location || !uploadedPath}>
             <IconAlertOctagon size={20} aria-hidden="true" />
             {submitting ? "Submitting..." : "Submit Waste Report"}
           </Button>

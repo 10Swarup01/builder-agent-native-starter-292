@@ -9,9 +9,9 @@ import { Button } from "@/components/ui/button";
 import { useServiceData } from "@/hooks/use-service-data";
 import { formatCount } from "@/lib/format";
 import { APP_TAGLINE, APP_TITLE } from "@/lib/app-config";
-import { getAnalytics } from "@/services/analytics";
+import { WASTE_CATEGORIES } from "@/lib/waste";
 import { listAuthorities } from "@/services/authorities";
-import { listReports } from "@/services/reports";
+import { listReports, summarizeReports } from "@/services/reports";
 
 export function meta() {
   return [
@@ -21,13 +21,16 @@ export function meta() {
 }
 
 export default function HomeRoute() {
-  const analytics = useServiceData(getAnalytics);
   const reports = useServiceData(listReports);
   const authorities = useServiceData(listAuthorities);
 
   const recent = [...(reports.data ?? [])]
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .slice(0, 3);
+  const summary = reports.data ? summarizeReports(reports.data) : null;
+  const categoryData = summary
+    ? WASTE_CATEGORIES.map((category) => ({ label: category.shortLabel, value: summary.categoryCounts[category.id] }))
+    : [];
 
   return (
     <div className="space-y-8">
@@ -63,13 +66,13 @@ export default function HomeRoute() {
         <h2 id="stats-heading" className="sr-only">
           Key statistics
         </h2>
-        <AsyncContent loading={analytics.loading} error={analytics.error} onRetry={analytics.retry} skeleton={<LoadingState variant="stats" />}>
-          {analytics.data ? (
+        <AsyncContent loading={reports.loading} error={reports.error} onRetry={reports.retry} skeleton={<LoadingState variant="stats" />}>
+          {summary ? (
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-              <StatsCard label="Total Reports" value={formatCount(analytics.data.stats.totalReports)} icon={IconSum} hint="Demo value" />
-              <StatsCard label="Active Problems" value={formatCount(analytics.data.stats.activeProblems)} icon={IconAlertTriangle} tone="warning" hint="Demo value" />
-              <StatsCard label="Resolved" value={formatCount(analytics.data.stats.resolved)} icon={IconCircleCheck} tone="success" hint="Demo value" />
-              <StatsCard label="Resolution Rate" value={`${analytics.data.stats.resolutionRate}%`} icon={IconChartBar} tone="info" hint="Demo value" />
+              <StatsCard label="Total Reports" value={formatCount(summary.totalReports)} icon={IconSum} />
+              <StatsCard label="Active Problems" value={formatCount(summary.activeProblems)} icon={IconAlertTriangle} tone="warning" />
+              <StatsCard label="Resolved" value={formatCount(summary.resolved)} icon={IconCircleCheck} tone="success" />
+              <StatsCard label="Resolution Rate" value={`${summary.resolutionRate}%`} icon={IconChartBar} tone="info" />
             </div>
           ) : null}
         </AsyncContent>
@@ -101,10 +104,10 @@ export default function HomeRoute() {
         <h2 id="category-heading" className="text-xl font-semibold text-foreground">
           Waste Category Summary
         </h2>
-        <AsyncContent loading={analytics.loading} error={analytics.error} onRetry={analytics.retry} skeleton={<LoadingState variant="detail" />}>
-          {analytics.data ? (
-            <ChartCard title="Reports by waste type" description="Demo values across the ten supported categories.">
-              <BarList data={analytics.data.wasteByCategory} barClassName="bg-chart-1" />
+        <AsyncContent loading={reports.loading} error={reports.error} onRetry={reports.retry} skeleton={<LoadingState variant="detail" />}>
+          {summary ? (
+            <ChartCard title="Reports by waste type" description="Reports submitted across the ten supported categories.">
+              <BarList data={categoryData} barClassName="bg-chart-1" />
             </ChartCard>
           ) : null}
         </AsyncContent>
