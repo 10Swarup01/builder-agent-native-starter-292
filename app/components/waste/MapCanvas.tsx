@@ -1,105 +1,184 @@
-import { IconMapPin } from "@tabler/icons-react";
-import type { MouseEvent } from "react";
+import { IconAlertTriangle, IconLoader2 } from "@tabler/icons-react";
+import type { Map as MapboxMap } from "mapbox-gl";
+import "mapbox-gl/dist/mapbox-gl.css";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 
 import { cn } from "@/lib/utils";
-import type { Severity, ReportStatus } from "@/lib/waste";
+import {
+  DEFAULT_MAP_ZOOM,
+  KOLKATA_CENTER,
+  LOCATE_ZOOM,
+  MAP_STYLE_URLS,
+  MAPBOX_ACCESS_TOKEN,
+  getMapboxConfigIssue,
+  type MapStatus,
+  type MapStyleMode,
+} from "@/lib/mapbox";
+import type { GeoPoint } from "@/services/maps";
 
-export interface MapMarker {
-  id: string;
-  label: string;
-  latitude: number;
-  longitude: number;
-  severity: Severity | null;
-  status: ReportStatus;
+export type MapboxModule = typeof import("mapbox-gl");
+
+export interface MapFocus extends GeoPoint {
+  zoom?: number;
 }
 
-const BOUNDS = { minLat: 22.44, maxLat: 22.68, minLng: 88.22, maxLng: 88.46 };
-
-export function toMapPercent(latitude: number, longitude: number) {
-  const x = ((longitude - BOUNDS.minLng) / (BOUNDS.maxLng - BOUNDS.minLng)) * 100;
-  const y = ((BOUNDS.maxLat - latitude) / (BOUNDS.maxLat - BOUNDS.minLat)) * 100;
-  return { x: Math.min(Math.max(x, 4), 96), y: Math.min(Math.max(y, 6), 94) };
+interface UseMapboxMapOptions {
+  styleMode: MapStyleMode;
+  initialCenter?: GeoPoint;
+  focus?: MapFocus | null;
+  onStyleLoad?: (map: MapboxMap) => void;
 }
 
-function fromMapPercent(xPercent: number, yPercent: number) {
+export function useMapboxMap({ styleMode, initialCenter, focus, onStyleLoad }: UseMapboxMapOptions) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [initial] = useState(() => ({
+    styleMode,
+    center: initialCenter ?? KOLKATA_CENTER,
+    zoom: initialCenter ? LOCATE_ZOOM : DEFAULT_MAP_ZOOM,
+  }));
+  const [instance, setInstance] = useState<{ map: MapboxMap; mapboxgl: MapboxModule } | null>(null);
+  const [loadStatus, setLoadStatus] = useState<"loading" | "ready" | "error">("loading");
+  const configIssue = getMapboxConfigIssue();
+  const appliedStyleRef = useRef(initial.styleMode);
+  const onStyleLoadRef = useRef(onStyleLoad);
+
+  useEffect(() => {
+    onStyleLoadRef.current = onStyleLoad;
+  });
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || configIssue) return;
+
+    let disposed = false;
+    let created: MapboxMap | undefined;
+
+    void import("mapbox-gl")
+      .then((mapboxgl) => {
+        if (disposed) return;
+        const map = new mapboxgl.Map({
+          container,
+          accessToken: MAPBOX_ACCESS_TOKEN,
+          style: MAP_STYLE_URLS[initial.styleMode],
+          center: [initial.center.longitude, initial.center.latitude],
+          zoom: initial.zoom,
+        });
+        created = map;
+        map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), "top-right");
+        map.on("style.load", () => onStyleLoadRef.current?.(map));
+        let loaded = false;
+        map.once("load", () => {
+          loaded = true;
+          setLoadStatus("ready");
+        });
+        map.on("error", () => {
+          if (!loaded) setLoadStatus("error");
+        });
+        setInstance({ map, mapboxgl });
+      })
+      .catch(() => {
+        if (!disposed) setLoadStatus("error");
+      });
+
+    return () => {
+      disposed = true;
+      created?.remove();
+      setInstance(null);
+    };
+  }, [initial, configIssue]);
+
+  useEffect(() => {
+    if (!instance || appliedStyleRef.current === styleMode) return;
+    appliedStyleRef.current = styleMode;
+    instance.map.setStyle(MAP_STYLE_URLS[styleMode]);
+  }, [instance, styleMode]);
+
+  useEffect(() => {
+    if (!instance || !focus) return;
+    instance.map.flyTo({ center: [focus.longitude, focus.latitude], zoom: focus.zoom ?? LOCATE_ZOOM });
+  }, [instance, focus]);
+
+  const status: MapStatus = configIssue ?? loadStatus;
+
   return {
-    latitude: BOUNDS.maxLat - (yPercent / 100) * (BOUNDS.maxLat - BOUNDS.minLat),
-    longitude: BOUNDS.minLng + (xPercent / 100) * (BOUNDS.maxLng - BOUNDS.minLng),
+    containerRef,
+    map: instance?.map ?? null,
+    mapboxgl: instance?.mapboxgl ?? null,
+    status,
   };
 }
 
-export function markerColor(severity: Severity | null, status: ReportStatus) {
-  if (status === "resolved") return "bg-success text-white";
-  if (severity === "critical") return "bg-danger text-white";
-  if (severity === "high") return "bg-danger/85 text-white";
-  if (severity === "medium") return "bg-warning text-foreground";
-  return "bg-info text-white";
-}
+const STATUS_COPY: Record<Exclude<MapStatus, "ready">, { title: string; detail?: string }> = {
+  loading: { title: "Loading map…" },
+  error: {
+    title: "The map could not be loaded",
+    detail: "Check your connection, then reload the page. If it keeps failing, confirm the Mapbox token allows this site.",
+  },
+  "missing-token": {
+    title: "Map is not configured",
+    detail: "Set VITE_MAPBOX_ACCESS_TOKEN to a Mapbox public token (starts with pk.) and restart the app.",
+  },
+  "secret-token": {
+    title: "Map token is not allowed in the browser",
+    detail: "VITE_MAPBOX_ACCESS_TOKEN contains a secret token (sk.). Use a public token (pk.) instead.",
+  },
+};
 
-interface MapCanvasProps {
-  markers: MapMarker[];
-  selectedId?: string;
-  onSelectMarker?: (id: string) => void;
-  onPickPoint?: (point: { latitude: number; longitude: number }) => void;
+interface MapFrameProps {
+  containerRef: RefObject<HTMLDivElement | null>;
+  status: MapStatus;
   className?: string;
-  compact?: boolean;
+  children?: ReactNode;
 }
 
-export function MapCanvas({ markers, selectedId, onSelectMarker, onPickPoint, className, compact = false }: MapCanvasProps) {
-  const handlePick = (event: MouseEvent<HTMLDivElement>) => {
-    if (!onPickPoint) return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    const xPercent = ((event.clientX - rect.left) / rect.width) * 100;
-    const yPercent = ((event.clientY - rect.top) / rect.height) * 100;
-    onPickPoint(fromMapPercent(xPercent, yPercent));
-  };
+export function MapFrame({ containerRef, status, className, children }: MapFrameProps) {
+  return (
+    <div className={cn("relative w-full overflow-hidden rounded-2xl border border-border bg-muted", className)}>
+      <div ref={containerRef} className="absolute inset-0" />
+      {status !== "ready" ? <MapStatusOverlay status={status} /> : null}
+      {children}
+    </div>
+  );
+}
 
+function MapStatusOverlay({ status }: { status: Exclude<MapStatus, "ready"> }) {
+  const copy = STATUS_COPY[status];
+  const loading = status === "loading";
   return (
     <div
-      role="region"
-      aria-label="Waste map placeholder"
-      onClick={handlePick}
-      className={cn(
-        "relative w-full overflow-hidden rounded-2xl border border-border bg-linear-to-br from-accent/60 via-background to-muted",
-        onPickPoint && "cursor-crosshair",
-        className,
-      )}
+      role={loading ? "status" : "alert"}
+      className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-muted/90 p-6 text-center"
     >
-      <svg className="absolute inset-0 size-full opacity-60" aria-hidden="true" preserveAspectRatio="none" viewBox="0 0 100 100">
-        <path d="M0 30 C 25 25, 40 45, 60 35 S 90 20, 100 28" fill="none" strokeWidth="1.2" className="stroke-border" />
-        <path d="M0 68 C 30 60, 50 80, 75 70 S 95 62, 100 66" fill="none" strokeWidth="1.2" className="stroke-border" />
-        <path d="M22 0 C 28 30, 18 60, 30 100" fill="none" strokeWidth="1" strokeDasharray="2 2" className="stroke-border" />
-        <path d="M70 0 C 62 40, 78 70, 66 100" fill="none" strokeWidth="1" strokeDasharray="2 2" className="stroke-border" />
-        <rect x="42" y="44" width="16" height="10" rx="2" className="fill-muted stroke-border" strokeWidth="0.4" />
-      </svg>
-      <div className="absolute left-3 top-3 rounded-lg bg-card/95 px-2.5 py-1.5 text-xs font-medium text-muted-foreground shadow-sm">
-        Map placeholder — connect Google Maps or Mapbox
-      </div>
-      {markers.map((marker) => {
-        const { x, y } = toMapPercent(marker.latitude, marker.longitude);
-        const selected = marker.id === selectedId;
-        return (
-          <button
-            key={marker.id}
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              onSelectMarker?.(marker.id);
-            }}
-            aria-label={`${marker.label}, ${marker.severity} priority, ${marker.status.replace("_", " ")}`}
-            aria-pressed={selected}
-            style={{ left: `${x}%`, top: `${y}%` }}
-            className={cn(
-              "absolute -translate-x-1/2 -translate-y-full transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              selected ? "z-10 scale-110" : "hover:scale-110",
-            )}
-          >
-            <span className={cn("flex items-center justify-center rounded-full shadow-md ring-2 ring-card", compact ? "size-8" : "size-10", markerColor(marker.severity, marker.status))}>
-              <IconMapPin size={compact ? 16 : 20} aria-hidden="true" />
-            </span>
-          </button>
-        );
-      })}
+      {loading ? (
+        <IconLoader2 size={28} className="animate-spin text-brand" aria-hidden="true" />
+      ) : (
+        <IconAlertTriangle size={28} className="text-warning" aria-hidden="true" />
+      )}
+      <p className="text-sm font-medium text-foreground">{copy.title}</p>
+      {copy.detail ? <p className="max-w-sm text-xs text-muted-foreground">{copy.detail}</p> : null}
+    </div>
+  );
+}
+
+const STYLE_LABELS: Record<MapStyleMode, string> = { light: "Light", dark: "Dark" };
+
+export function MapStyleToggle({ value, onChange }: { value: MapStyleMode; onChange: (mode: MapStyleMode) => void }) {
+  return (
+    <div role="group" aria-label="Map style" className="absolute bottom-3 left-3 z-10 flex overflow-hidden rounded-lg border border-border bg-card/95 shadow-sm">
+      {(Object.keys(STYLE_LABELS) as MapStyleMode[]).map((mode) => (
+        <button
+          key={mode}
+          type="button"
+          aria-pressed={value === mode}
+          onClick={() => onChange(mode)}
+          className={cn(
+            "min-h-9 px-3 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            value === mode ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {STYLE_LABELS[mode]}
+        </button>
+      ))}
     </div>
   );
 }

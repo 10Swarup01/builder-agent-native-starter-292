@@ -1,3 +1,4 @@
+import { isValidCoordinate } from "@/lib/mapbox";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { REPORT_IMAGE_BUCKET } from "@/services/report-images";
 import {
@@ -107,6 +108,62 @@ export async function listReports(): Promise<WasteReport[]> {
     .order("created_at", { ascending: false });
   if (error) throw new Error("Could not load waste reports.");
   return toWasteReports((data ?? []) as unknown as ReportRow[]);
+}
+
+export interface MapReport {
+  id: string;
+  reportNumber: string;
+  category: WasteCategoryId;
+  severity: Severity | null;
+  status: ReportStatus;
+  address: string;
+  createdAt: string;
+  latitude: number;
+  longitude: number;
+  photoPath: string | null;
+}
+
+interface MapReportRow {
+  id: string;
+  report_number: string;
+  severity: Severity | null;
+  status: ReportStatus;
+  address: string | null;
+  created_at: string;
+  latitude: number;
+  longitude: number;
+  waste_categories: { name: string } | null;
+  report_images: { image_url: string; image_type: string | null }[];
+}
+
+const MAP_REPORT_SELECT =
+  "id, report_number, severity, status, address, created_at, latitude, longitude, waste_categories(name), report_images(image_url, image_type)";
+
+export async function listMapReports(): Promise<MapReport[]> {
+  const { data, error } = await getSupabaseBrowserClient()
+    .from("reports")
+    .select(MAP_REPORT_SELECT)
+    .not("latitude", "is", null)
+    .not("longitude", "is", null)
+    .order("created_at", { ascending: false });
+  if (error) throw new Error("Could not load waste reports.");
+  return ((data ?? []) as unknown as MapReportRow[])
+    .filter((row) => isValidCoordinate(row.latitude, row.longitude))
+    .map((row) => {
+      const original = row.report_images.find((image) => image.image_type === "original") ?? row.report_images[0];
+      return {
+        id: row.id,
+        reportNumber: row.report_number,
+        category: categoryIdFromName(row.waste_categories?.name),
+        severity: row.severity,
+        status: row.status,
+        address: row.address ?? "",
+        createdAt: row.created_at,
+        latitude: row.latitude,
+        longitude: row.longitude,
+        photoPath: original?.image_url ?? null,
+      };
+    });
 }
 
 export async function listOwnReports(): Promise<WasteReport[]> {
