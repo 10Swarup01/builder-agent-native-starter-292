@@ -86,7 +86,6 @@
     "@radix-ui/react-tooltip": "^1.2.7",
     "@tailwindcss/typography": "^0.5.20",
     "@tailwindcss/vite": "^4.2.4",
-    "@types/geojson": "^7946.0.16",
     "@types/node": "^24.2.1",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
