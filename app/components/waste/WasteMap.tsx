@@ -127,6 +127,16 @@ function ensureReportLayers(map: MapboxMap, data: ReportCollection) {
   }
 }
 
+interface RenderedFeature {
+  properties?: Record<string, unknown> | null;
+  geometry?: { type: string; coordinates?: unknown };
+}
+
+// mapbox-gl's declarations reference the GeoJSON namespace, which TypeScript 7 does not resolve here.
+function renderedFeatures(map: MapboxMap, event: MapMouseEvent, layer: string): RenderedFeature[] {
+  return map.queryRenderedFeatures(event.point, { layers: [layer] }) as unknown as RenderedFeature[];
+}
+
 function element<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, text?: string): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
   node.className = className;
@@ -210,10 +220,10 @@ export function WasteMap({ reports, focus, onViewReport, className }: WasteMapPr
     let popup: Popup | undefined;
 
     const onClusterClick = (event: MapMouseEvent) => {
-      const [cluster] = map.queryRenderedFeatures(event.point, { layers: [CLUSTER_LAYER] });
+      const [cluster] = renderedFeatures(map, event, CLUSTER_LAYER);
       const clusterId = cluster?.properties?.cluster_id;
       const source = map.getSource<GeoJSONSource>(REPORTS_SOURCE);
-      if (typeof clusterId !== "number" || !source || cluster.geometry.type !== "Point") return;
+      if (typeof clusterId !== "number" || !source || cluster?.geometry?.type !== "Point") return;
       const center = cluster.geometry.coordinates as [number, number];
       source.getClusterExpansionZoom(clusterId, (error, zoom) => {
         if (error || zoom == null) return;
@@ -222,7 +232,7 @@ export function WasteMap({ reports, focus, onViewReport, className }: WasteMapPr
     };
 
     const onPointClick = (event: MapMouseEvent) => {
-      const [feature] = map.queryRenderedFeatures(event.point, { layers: [POINT_LAYER] });
+      const [feature] = renderedFeatures(map, event, POINT_LAYER);
       const id = feature?.properties?.id;
       const report = typeof id === "string" ? latest.current.reportsById.get(id) : undefined;
       if (!report) return;
