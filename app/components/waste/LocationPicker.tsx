@@ -77,6 +77,7 @@ export function LocationPicker({ value, onChange }: LocationPickerProps) {
     setLocating(true);
     try {
       const point = await getCurrentPosition();
+      setAccess("granted");
       setFocus({ ...point, zoom: LOCATE_ZOOM });
       movePin(point);
     } catch (caught) {

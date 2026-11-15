@@ -37,7 +37,7 @@ export function useMapboxMap({ styleMode, initialCenter, focus, onStyleLoad }: U
     zoom: initialCenter ? LOCATE_ZOOM : DEFAULT_MAP_ZOOM,
   }));
   const [instance, setInstance] = useState<{ map: MapboxMap; mapboxgl: MapboxModule } | null>(null);
-  const [loadStatus, setLoadStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [loadStatus, setLoadStatus] = useState<MapStatus>("loading");
   const configIssue = getMapboxConfigIssue();
   const appliedStyleRef = useRef(initial.styleMode);
   const onStyleLoadRef = useRef(onStyleLoad);
@@ -56,6 +56,10 @@ export function useMapboxMap({ styleMode, initialCenter, focus, onStyleLoad }: U
     void import("mapbox-gl")
       .then((mapboxgl) => {
         if (disposed) return;
+        if (!mapboxgl.isSupported()) {
+          setLoadStatus("webgl-unsupported");
+          return;
+        }
         const map = new mapboxgl.Map({
           container,
           accessToken: MAPBOX_ACCESS_TOKEN,
@@ -71,8 +75,10 @@ export function useMapboxMap({ styleMode, initialCenter, focus, onStyleLoad }: U
           loaded = true;
           setLoadStatus("ready");
         });
-        map.on("error", () => {
-          if (!loaded) setLoadStatus("error");
+        map.on("error", (event) => {
+          if (loaded) return;
+          const httpStatus = (event.error as Error & { status?: number }).status;
+          setLoadStatus(httpStatus === 401 || httpStatus === 403 ? "token-rejected" : "error");
         });
         setInstance({ map, mapboxgl });
       })
@@ -98,6 +104,14 @@ export function useMapboxMap({ styleMode, initialCenter, focus, onStyleLoad }: U
     instance.map.flyTo({ center: [focus.longitude, focus.latitude], zoom: focus.zoom ?? LOCATE_ZOOM });
   }, [instance, focus]);
 
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!instance || !container) return;
+    const observer = new ResizeObserver(() => instance.map.resize());
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [instance]);
+
   const status: MapStatus = configIssue ?? loadStatus;
 
   return {
@@ -122,6 +136,14 @@ const STATUS_COPY: Record<Exclude<MapStatus, "ready">, { title: string; detail?:
     title: "Map token is not allowed in the browser",
     detail: "VITE_MAPBOX_ACCESS_TOKEN contains a secret token (sk.). Use a public token (pk.) instead.",
   },
+  "token-rejected": {
+    title: "Mapbox rejected the map token",
+    detail: "The token is not allowed to load maps on this domain. Check its URL restrictions in the Mapbox account.",
+  },
+  "webgl-unsupported": {
+    title: "This browser cannot display maps",
+    detail: "Enable WebGL or hardware acceleration in your browser settings, then reload the page.",
+  },
 };
 
 interface MapFrameProps {
@@ -134,7 +156,9 @@ interface MapFrameProps {
 export function MapFrame({ containerRef, status, className, children }: MapFrameProps) {
   return (
     <div className={cn("relative w-full overflow-hidden rounded-2xl border border-border bg-muted", className)}>
-      <div ref={containerRef} className="absolute inset-0" />
+      <div className="absolute inset-0">
+        <div ref={containerRef} className="h-full w-full" />
+      </div>
       {status !== "ready" ? <MapStatusOverlay status={status} /> : null}
       {children}
     </div>
