@@ -1,10 +1,28 @@
-import type { ReportLocation } from "@/lib/waste";
+import { INDIA_COUNTRY_CODE, KOLKATA_CENTER, MAPBOX_ACCESS_TOKEN, isValidCoordinate } from "@/lib/mapbox";
 
-import { demoLatency } from "./demo";
+const GEOCODING_URL = "https://api.mapbox.com/search/geocode/v6";
 
 export interface GeoPoint {
   latitude: number;
   longitude: number;
+}
+
+export interface PlaceResult extends GeoPoint {
+  id: string;
+  address: string;
+  area: string;
+}
+
+export type GeolocationAccess = PermissionState | "unsupported";
+
+export async function getGeolocationAccess(): Promise<GeolocationAccess> {
+  if (!navigator.geolocation) return "unsupported";
+  if (!navigator.permissions) return "prompt";
+  try {
+    return (await navigator.permissions.query({ name: "geolocation" })).state;
+  } catch {
+    return "prompt";
+  }
 }
 
 export function getCurrentPosition(): Promise<GeoPoint> {
@@ -15,29 +33,83 @@ export function getCurrentPosition(): Promise<GeoPoint> {
     }
     navigator.geolocation.getCurrentPosition(
       (position) => resolve({ latitude: position.coords.latitude, longitude: position.coords.longitude }),
-      () => reject(new Error("Location permission was denied or unavailable.")),
+      (error) =>
+        reject(
+          new Error(
+            error.code === error.PERMISSION_DENIED
+              ? "Location access was denied."
+              : "Could not read your location. Try again or search for an address.",
+          ),
+        ),
       { enableHighAccuracy: true, timeout: 10000 },
     );
   });
 }
 
-// TODO: Connect Maps API — reverse-geocode coordinates to address, area and ward on the server.
-export async function resolveLocation(point: GeoPoint): Promise<ReportLocation> {
-  await demoLatency();
-  return {
-    address: "Demo location",
-    area: "Demo area",
-    ward: "Demo ward",
-    latitude: point.latitude,
-    longitude: point.longitude,
+interface GeocodeFeature {
+  geometry?: { coordinates?: number[] };
+  properties?: {
+    mapbox_id?: string;
+    full_address?: string;
+    name?: string;
+    place_formatted?: string;
+    context?: {
+      neighborhood?: { name?: string };
+      locality?: { name?: string };
+      place?: { name?: string };
+    };
   };
 }
 
-// TODO: Connect Maps API — replace with place search results.
-export async function searchLocation(query: string): Promise<ReportLocation[]> {
-  await demoLatency();
-  if (!query.trim()) return [];
-  return [
-    { address: `Demo location matching "${query.trim()}"`, area: "Demo area", ward: "Demo ward", latitude: 22.5726, longitude: 88.3639 },
-  ];
+function toPlace(feature: GeocodeFeature): PlaceResult | null {
+  const properties = feature.properties;
+  const [longitude, latitude] = feature.geometry?.coordinates ?? [];
+  if (!properties || !isValidCoordinate(latitude, longitude) || latitude === undefined || longitude === undefined) return null;
+  const address = properties.full_address ?? [properties.name, properties.place_formatted].filter(Boolean).join(", ");
+  if (!address) return null;
+  return {
+    id: properties.mapbox_id ?? `${latitude},${longitude}`,
+    address,
+    area: properties.context?.neighborhood?.name ?? properties.context?.locality?.name ?? properties.context?.place?.name ?? "",
+    latitude,
+    longitude,
+  };
+}
+
+async function requestGeocode(endpoint: "forward" | "reverse", params: Record<string, string>, signal?: AbortSignal): Promise<PlaceResult[]> {
+  const url = new URL(`${GEOCODING_URL}/${endpoint}`);
+  const allParams = { ...params, language: "en", access_token: MAPBOX_ACCESS_TOKEN };
+  for (const [key, value] of Object.entries(allParams)) url.searchParams.set(key, value);
+  const response = await fetch(url, { signal });
+  if (!response.ok) throw new Error(`Mapbox geocoding failed with status ${response.status}`);
+  const body = (await response.json()) as { features?: GeocodeFeature[] };
+  return (body.features ?? []).flatMap((feature) => toPlace(feature) ?? []);
+}
+
+export function searchLocation(query: string, signal?: AbortSignal): Promise<PlaceResult[]> {
+  return requestGeocode(
+    "forward",
+    {
+      q: query.trim(),
+      country: INDIA_COUNTRY_CODE,
+      proximity: `${KOLKATA_CENTER.longitude},${KOLKATA_CENTER.latitude}`,
+      autocomplete: "true",
+      limit: "6",
+    },
+    signal,
+  );
+}
+
+export async function reverseGeocode(point: GeoPoint, signal?: AbortSignal): Promise<PlaceResult | null> {
+  const [place] = await requestGeocode(
+    "reverse",
+    {
+      longitude: String(point.longitude),
+      latitude: String(point.latitude),
+      country: INDIA_COUNTRY_CODE,
+      limit: "1",
+    },
+    signal,
+  );
+  return place ?? null;
 }

@@ -10,6 +10,12 @@ const EXTENSIONS: Record<(typeof REPORT_IMAGE_TYPES)[number], string> = {
   "image/webp": "webp",
 };
 
+export async function getReportPhotoUrl(path: string): Promise<string | null> {
+  const { data, error } = await getSupabaseBrowserClient().storage.from(REPORT_IMAGE_BUCKET).createSignedUrl(path, 60 * 60);
+  if (error || !data) return null;
+  return data.signedUrl;
+}
+
 export function validateReportImage(file: File): string | null {
   if (!(REPORT_IMAGE_TYPES as readonly string[]).includes(file.type)) {
     return "Please choose a JPG, PNG or WEBP photo.";
