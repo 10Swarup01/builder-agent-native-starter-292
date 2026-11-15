@@ -2,7 +2,7 @@ export const MAPBOX_ACCESS_TOKEN = (import.meta.env.VITE_MAPBOX_ACCESS_TOKEN ?? 
 
 export type MapConfigIssue = "missing-token" | "secret-token";
 
-export type MapStatus = "loading" | "ready" | "error" | MapConfigIssue;
+export type MapStatus = "loading" | "ready" | "error" | "token-rejected" | "webgl-unsupported" | MapConfigIssue;
 
 export function getMapboxConfigIssue(): MapConfigIssue | null {
   if (!MAPBOX_ACCESS_TOKEN) return "missing-token";

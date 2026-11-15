@@ -25,6 +25,16 @@ export async function getGeolocationAccess(): Promise<GeolocationAccess> {
   }
 }
 
+function describeGeolocationError(error: GeolocationPositionError): string {
+  if (error.code === error.PERMISSION_DENIED) {
+    return "Location access is blocked for this site. Allow location in your browser's site settings, or search for an address.";
+  }
+  if (error.code === error.TIMEOUT) {
+    return "Finding your location took too long. Try again, or search for an address.";
+  }
+  return "Your device could not determine its location. Check that location services are on, or search for an address.";
+}
+
 export function getCurrentPosition(): Promise<GeoPoint> {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
@@ -33,14 +43,7 @@ export function getCurrentPosition(): Promise<GeoPoint> {
     }
     navigator.geolocation.getCurrentPosition(
       (position) => resolve({ latitude: position.coords.latitude, longitude: position.coords.longitude }),
-      (error) =>
-        reject(
-          new Error(
-            error.code === error.PERMISSION_DENIED
-              ? "Location access was denied."
-              : "Could not read your location. Try again or search for an address.",
-          ),
-        ),
+      (error) => reject(new Error(describeGeolocationError(error))),
       { enableHighAccuracy: true, timeout: 10000 },
     );
   });
