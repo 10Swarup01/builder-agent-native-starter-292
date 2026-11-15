@@ -1,6 +1,5 @@
 import type {
   Authority,
-  WasteAnalysis,
   WasteCategoryId,
   WasteReport,
 } from "@/lib/waste";
@@ -318,13 +317,6 @@ export const DEMO_AI_REVIEW_ITEMS = [
     location: "Demo location, Ballygunge",
   },
 ];
-
-export const DEMO_ANALYSIS: WasteAnalysis = {
-  category: "plastic",
-  confidence: 94,
-  severity: "high",
-  detectedItems: ["Plastic bottles", "Plastic bags", "Food packaging"],
-};
 
 export const DEMO_USERS = [
   { id: "user-1", name: "Demo Citizen One", email: "citizen1@demo.invalid", role: "citizen", status: "active", reports: 12 },
