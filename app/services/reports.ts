@@ -1,6 +1,6 @@
 import { isValidCoordinate } from "@/lib/mapbox";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
-import { REPORT_IMAGE_BUCKET } from "@/services/report-images";
+import { REPORT_IMAGE_BUCKET } from "../../shared/report-photo";
 import {
   getCategory,
   WASTE_CATEGORIES,

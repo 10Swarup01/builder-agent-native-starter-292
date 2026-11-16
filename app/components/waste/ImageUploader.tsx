@@ -2,8 +2,8 @@ import { IconAlertTriangle, IconCamera, IconPhoto, IconRefresh, IconTrash, IconU
 import { useRef, useState, type DragEvent } from "react";
 
 import { Button } from "@/components/ui/button";
-import { REPORT_IMAGE_MAX_BYTES } from "@/services/report-images";
 import { cn } from "@/lib/utils";
+import { REPORT_IMAGE_MAX_BYTES } from "../../../shared/report-photo";
 
 export type PhotoUploadState = "idle" | "uploading" | "done" | "error";
 

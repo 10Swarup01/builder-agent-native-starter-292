@@ -124,13 +124,6 @@ export function formatReportLocation(location: ReportLocation): string {
   return parts.length > 0 ? parts.join(", ") : "Location not provided";
 }
 
-export interface WasteAnalysis {
-  category: WasteCategoryId;
-  confidence: number;
-  severity: Severity;
-  detectedItems: string[];
-}
-
 export interface Authority {
   id: string;
   name: string;

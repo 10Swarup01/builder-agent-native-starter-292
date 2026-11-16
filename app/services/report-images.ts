@@ -1,10 +1,7 @@
 import { getSupabaseBrowserClient } from "@/lib/supabase";
+import { REPORT_IMAGE_BUCKET, REPORT_IMAGE_MAX_BYTES, REPORT_IMAGE_TYPES, type ReportImageType } from "../../shared/report-photo";
 
-export const REPORT_IMAGE_BUCKET = "report-images";
-export const REPORT_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
-export const REPORT_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
-
-const EXTENSIONS: Record<(typeof REPORT_IMAGE_TYPES)[number], string> = {
+const EXTENSIONS: Record<ReportImageType, string> = {
   "image/jpeg": "jpg",
   "image/png": "png",
   "image/webp": "webp",
@@ -34,7 +31,7 @@ export async function uploadReportImage(file: File): Promise<string> {
   const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError || !userData.user) throw new Error("Your session has expired. Please sign in again.");
 
-  const extension = EXTENSIONS[file.type as (typeof REPORT_IMAGE_TYPES)[number]];
+  const extension = EXTENSIONS[file.type as ReportImageType];
   const path = `${userData.user.id}/${crypto.randomUUID()}/${crypto.randomUUID()}.${extension}`;
   const { error } = await supabase.storage.from(REPORT_IMAGE_BUCKET).upload(path, file, {
     contentType: file.type,
