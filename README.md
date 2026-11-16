@@ -22,8 +22,13 @@ never sent to the browser. `GEMINI_MODEL` is optional and defaults to
 `gemini-3.8-flash`. Without a key, reports still submit with a manually chosen
 category.
 
-Apply `supabase/migrations/20261115120000_attach_report_photo_analysis.sql` to the
-Supabase project before deploying this feature.
+Analysis attempts are saved with `SUPABASE_SERVICE_ROLE_KEY`, which must also be a
+server-only variable (for production, in Render). Browser users cannot write analysis
+records. Without this key, photo analysis returns an error and reports still submit.
+
+Apply these migrations to the Supabase project before deploying this feature:
+`supabase/migrations/20261115120000_attach_report_photo_analysis.sql` and
+`supabase/migrations/20261116090000_restrict_photo_analysis_writes.sql`.
 
 ## Project layout
 

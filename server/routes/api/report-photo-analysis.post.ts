@@ -2,6 +2,9 @@ import { defineEventHandler, readBody, setResponseHeader, setResponseStatus } fr
 import { z } from "zod";
 
 import { REPORT_IMAGE_BUCKET, REPORT_IMAGE_MAX_BYTES } from "../../../shared/report-photo";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+import { createSupabaseAdminClient } from "../../lib/supabase-admin";
 import { createSupabaseServerClient } from "../../lib/supabase-auth";
 import type { WasteAnalysis } from "../../../shared/waste-analysis";
 import {
@@ -40,6 +43,7 @@ export default defineEventHandler(async (event) => {
     if (cached) return cached;
 
     const config = readGeminiConfig(process.env);
+    const admin = createSupabaseAdminClient();
     await assertWithinRateLimit(supabase);
 
     const bytes = await downloadPhoto(supabase, imagePath);
@@ -48,12 +52,12 @@ export default defineEventHandler(async (event) => {
 
     const analysis = await analyzeWastePhoto({ bytes, mimeType }, config).catch(async (error: unknown) => {
       if (error instanceof WastePhotoError) {
-        await recordAttempt(supabase, { userId, imagePath, model: config.model, analysis: null, errorCode: error.code }).catch(() => undefined);
+        await recordAttempt(admin, { userId, imagePath, model: config.model, analysis: null, errorCode: error.code }).catch(() => undefined);
       }
       throw error;
     });
 
-    const analyzedAt = await recordAttempt(supabase, { userId, imagePath, model: config.model, analysis, errorCode: null });
+    const analyzedAt = await recordAttempt(admin, { userId, imagePath, model: config.model, analysis, errorCode: null });
     return { analysis, model: config.model, analyzedAt, cached: false };
   } catch (error) {
     if (error instanceof WastePhotoError) {
@@ -117,8 +121,8 @@ interface AttemptRecord {
   errorCode: WastePhotoErrorCode | null;
 }
 
-async function recordAttempt(supabase: SupabaseServerClient, attempt: AttemptRecord): Promise<string> {
-  const { data, error } = await supabase
+async function recordAttempt(admin: SupabaseClient, attempt: AttemptRecord): Promise<string> {
+  const { data, error } = await admin
     .from("report_photo_analyses")
     .insert({
       user_id: attempt.userId,
