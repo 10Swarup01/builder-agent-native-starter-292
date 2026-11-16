@@ -18,6 +18,9 @@ import type { GeoPoint } from "@/services/maps";
 
 export type MapboxModule = typeof import("mapbox-gl");
 
+// mapbox-gl's typings leave out supported(), but the runtime module exports it.
+type MapboxRuntime = MapboxModule & { supported: (failIfMajorPerformanceCaveat?: boolean) => boolean };
+
 export interface MapFocus extends GeoPoint {
   zoom?: number;
 }
@@ -54,9 +57,10 @@ export function useMapboxMap({ styleMode, initialCenter, focus, onStyleLoad }: U
     let created: MapboxMap | undefined;
 
     void import("mapbox-gl")
-      .then((mapboxgl) => {
+      .then((imported) => {
         if (disposed) return;
-        if (!mapboxgl.isSupported()) {
+        const mapboxgl = imported as MapboxRuntime;
+        if (!mapboxgl.supported()) {
           setLoadStatus("webgl-unsupported");
           return;
         }

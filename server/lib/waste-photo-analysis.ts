@@ -202,8 +202,17 @@ const modelOutputSchema = z.object({
   environmental_risks: z.array(boundedText(160)).max(10),
   disposal_recommendation: boundedText(500),
   requires_special_handling: z.boolean(),
-  additional_notes: z.string().trim().max(500),
+  additional_notes: z.string().trim().max(500).nullable(),
 });
+
+function toWasteAnalysis(data: z.infer<typeof modelOutputSchema>): WasteAnalysis {
+  return { ...data, additional_notes: data.additional_notes || null };
+}
+
+export function parseStoredWasteAnalysis(value: unknown): WasteAnalysis | null {
+  const parsed = modelOutputSchema.safeParse(value);
+  return parsed.success ? toWasteAnalysis(parsed.data) : null;
+}
 
 export function parseWasteAnalysis(rawText: string): WasteAnalysis {
   let json: unknown;
@@ -219,7 +228,7 @@ export function parseWasteAnalysis(rawText: string): WasteAnalysis {
     });
     throw new WastePhotoError("invalid_response");
   }
-  return { ...parsed.data, additional_notes: parsed.data.additional_notes || null };
+  return toWasteAnalysis(parsed.data);
 }
 
 function parseModelResponse(response: GenerateContentResponse): WasteAnalysis {

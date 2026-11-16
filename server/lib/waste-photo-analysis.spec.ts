@@ -7,6 +7,7 @@ import {
   analyzeWastePhoto,
   DEFAULT_GEMINI_MODEL,
   detectReportImageType,
+  parseStoredWasteAnalysis,
   parseWasteAnalysis,
   readGeminiConfig,
   WastePhotoError,
@@ -147,6 +148,18 @@ describe("parseWasteAnalysis", () => {
 
   it("rejects a severity outside the allowed list", () => {
     expect(codeOf(() => parseWasteAnalysis(JSON.stringify({ ...validOutput, severity: "Extreme" })))).toBe("invalid_response");
+  });
+});
+
+describe("parseStoredWasteAnalysis", () => {
+  it("accepts a stored analysis whose notes are null", () => {
+    const stored = { ...validOutput, additional_notes: null };
+    expect(parseStoredWasteAnalysis(stored)?.additional_notes).toBeNull();
+  });
+
+  it("returns null for stored data that fails validation", () => {
+    expect(parseStoredWasteAnalysis({ ...validOutput, primary_category: "Hazardous" })).toBeNull();
+    expect(parseStoredWasteAnalysis(null)).toBeNull();
   });
 });
 

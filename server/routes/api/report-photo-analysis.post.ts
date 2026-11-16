@@ -7,6 +7,7 @@ import type { WasteAnalysis } from "../../../shared/waste-analysis";
 import {
   analyzeWastePhoto,
   detectReportImageType,
+  parseStoredWasteAnalysis,
   readGeminiConfig,
   WastePhotoError,
   type WastePhotoErrorCode,
@@ -79,7 +80,9 @@ async function findSucceededAnalysis(supabase: SupabaseServerClient, imagePath: 
     throw new WastePhotoError("storage_unavailable");
   }
   if (!data) return null;
-  return { analysis: data.analysis, model: data.model, analyzedAt: data.created_at, cached: true };
+  const analysis = parseStoredWasteAnalysis(data.analysis);
+  if (!analysis) return null;
+  return { analysis, model: data.model, analyzedAt: data.created_at, cached: true };
 }
 
 async function assertWithinRateLimit(supabase: SupabaseServerClient) {
