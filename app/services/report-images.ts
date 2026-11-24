@@ -8,9 +8,17 @@ const EXTENSIONS: Record<ReportImageType, string> = {
 };
 
 export async function getReportPhotoUrl(path: string): Promise<string | null> {
-  const { data, error } = await getSupabaseBrowserClient().storage.from(REPORT_IMAGE_BUCKET).createSignedUrl(path, 60 * 60);
-  if (error || !data) return null;
-  return data.signedUrl;
+  if (!path) return null;
+  if (path.startsWith("http://") || path.startsWith("https://") || path.startsWith("data:") || path.startsWith("blob:") || path.startsWith("/")) {
+    return path;
+  }
+  try {
+    const { data, error } = await getSupabaseBrowserClient().storage.from(REPORT_IMAGE_BUCKET).createSignedUrl(path, 60 * 60);
+    if (!error && data?.signedUrl) return data.signedUrl;
+  } catch (err) {
+    console.warn("[report-images] createSignedUrl failed, falling back to server image proxy", err);
+  }
+  return `/api/report-image?path=${encodeURIComponent(path)}`;
 }
 
 export function validateReportImage(file: File): string | null {

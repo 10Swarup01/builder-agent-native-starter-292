@@ -11,15 +11,16 @@ interface WastePhotoProps {
 }
 
 export function WastePhoto({ category, src, alt, tone = "waste", className }: WastePhotoProps) {
-  const [loadError, setLoadError] = useState(false);
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const isFailed = !src || failedSrc === src;
 
-  if (src && !loadError) {
+  if (src && !isFailed) {
     return (
       <img
         src={src}
         alt={alt}
         className={cn("h-full w-full object-cover", className)}
-        onError={() => setLoadError(true)}
+        onError={() => setFailedSrc(src)}
       />
     );
   }

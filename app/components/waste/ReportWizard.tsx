@@ -190,7 +190,7 @@ export function ReportWizard() {
 
   if (submitted) {
     const categoryInfo = getCategory(submitted.category);
-    const photoSrc = submitted.imageUrl || previewUrl || undefined;
+    const photoSrc = previewUrl || submitted.imageUrl || undefined;
 
     return (
       <section aria-labelledby="success-title" className="animate-fade-up mx-auto max-w-xl space-y-6 rounded-3xl border border-border bg-card p-6 text-center shadow-sm sm:p-8">

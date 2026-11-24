@@ -72,16 +72,18 @@ async function signedImageUrls(paths: string[]): Promise<Map<string, string>> {
       });
     }
   } catch (err) {
-    console.warn("[reports] createSignedUrls failed, trying public URLs", err);
+    console.warn("[reports] createSignedUrls failed, falling back to server image proxy", err);
   }
 
-  // Ensure every path has a fallback via getPublicUrl (for public buckets or anon visitors)
+  // Ensure every path has a reliable URL:
+  // If createSignedUrls failed (private bucket or anonymous visitor),
+  // fallback to our server proxy route /api/report-image which uses service role.
   for (const path of paths) {
-    if (!urls.has(path) || !urls.get(path)) {
-      const { data } = client.storage.from(REPORT_IMAGE_BUCKET).getPublicUrl(path);
-      if (data?.publicUrl) {
-        urls.set(path, data.publicUrl);
-      }
+    if (!path) continue;
+    if (path.startsWith("http://") || path.startsWith("https://") || path.startsWith("data:") || path.startsWith("blob:") || path.startsWith("/")) {
+      urls.set(path, path);
+    } else if (!urls.has(path) || !urls.get(path)) {
+      urls.set(path, `/api/report-image?path=${encodeURIComponent(path)}`);
     }
   }
 
@@ -94,11 +96,17 @@ async function toWasteReports(rows: ReportRow[]): Promise<WasteReport[]> {
   return rows.map((row) => {
     const original = row.report_images.find((image) => image.image_type === "original") ?? row.report_images[0];
     const resolution = row.report_images.find((image) => image.image_type === "resolution");
+    const originalUrl = original
+      ? (urls.get(original.image_url) || (original.image_url.startsWith("http") ? original.image_url : `/api/report-image?path=${encodeURIComponent(original.image_url)}`))
+      : undefined;
+    const resolutionUrl = resolution
+      ? (urls.get(resolution.image_url) || (resolution.image_url.startsWith("http") ? resolution.image_url : `/api/report-image?path=${encodeURIComponent(resolution.image_url)}`))
+      : undefined;
     return {
       id: row.id,
       reportNumber: row.report_number,
-      imageUrl: original ? urls.get(original.image_url) : undefined,
-      afterImageUrl: resolution ? urls.get(resolution.image_url) : undefined,
+      imageUrl: originalUrl,
+      afterImageUrl: resolutionUrl,
       category: categoryIdFromName(row.waste_categories?.name),
       aiConfidence: 0,
       severity: row.severity,
