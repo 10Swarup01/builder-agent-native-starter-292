@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { getCategory, type WasteCategoryId } from "@/lib/waste";
 
@@ -10,8 +11,17 @@ interface WastePhotoProps {
 }
 
 export function WastePhoto({ category, src, alt, tone = "waste", className }: WastePhotoProps) {
-  if (src) {
-    return <img src={src} alt={alt} className={cn("h-full w-full object-cover", className)} />;
+  const [loadError, setLoadError] = useState(false);
+
+  if (src && !loadError) {
+    return (
+      <img
+        src={src}
+        alt={alt}
+        className={cn("h-full w-full object-cover", className)}
+        onError={() => setLoadError(true)}
+      />
+    );
   }
   const meta = getCategory(category);
   const Icon = meta.icon;

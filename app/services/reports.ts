@@ -58,11 +58,33 @@ function categoryIdFromName(name: string | null | undefined): WasteCategoryId {
 async function signedImageUrls(paths: string[]): Promise<Map<string, string>> {
   const urls = new Map<string, string>();
   if (paths.length === 0) return urls;
-  const { data, error } = await getSupabaseBrowserClient().storage.from(REPORT_IMAGE_BUCKET).createSignedUrls(paths, SIGNED_URL_SECONDS);
-  if (error || !data) throw new Error("Could not load report photos.");
-  for (const entry of data) {
-    if (entry.path && entry.signedUrl) urls.set(entry.path, entry.signedUrl);
+  const client = getSupabaseBrowserClient();
+
+  try {
+    const { data } = await client.storage.from(REPORT_IMAGE_BUCKET).createSignedUrls(paths, SIGNED_URL_SECONDS);
+    if (Array.isArray(data)) {
+      data.forEach((entry, idx) => {
+        const signed = entry?.signedUrl || (entry as unknown as { signedURL?: string })?.signedURL;
+        if (signed) {
+          if (entry.path) urls.set(entry.path, signed);
+          if (paths[idx]) urls.set(paths[idx], signed);
+        }
+      });
+    }
+  } catch (err) {
+    console.warn("[reports] createSignedUrls failed, trying public URLs", err);
   }
+
+  // Ensure every path has a fallback via getPublicUrl (for public buckets or anon visitors)
+  for (const path of paths) {
+    if (!urls.has(path) || !urls.get(path)) {
+      const { data } = client.storage.from(REPORT_IMAGE_BUCKET).getPublicUrl(path);
+      if (data?.publicUrl) {
+        urls.set(path, data.publicUrl);
+      }
+    }
+  }
+
   return urls;
 }
 

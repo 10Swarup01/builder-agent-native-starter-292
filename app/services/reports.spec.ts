@@ -36,6 +36,9 @@ beforeEach(() => {
       data: paths.map((path) => ({ path, signedUrl: `https://signed.example/${path}` })),
       error: null,
     }),
+    getPublicUrl: (path: string) => ({
+      data: { publicUrl: `https://public.example/${path}` },
+    }),
   }));
   supabase.rpc.mockResolvedValue({
     data: [{ report_id: "report-1", report_number: "WW-2026-000001", created_at: "2026-11-15T10:00:00Z" }],

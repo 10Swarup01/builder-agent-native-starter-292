@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { getCategory, QUANTITY_OPTIONS, type ReportLocation, type WasteCategoryId, type WasteQuantity, type WasteReport } from "@/lib/waste";
+import { formatReportLocation, getCategory, QUANTITY_OPTIONS, type ReportLocation, type WasteCategoryId, type WasteQuantity, type WasteReport } from "@/lib/waste";
 import { cn } from "@/lib/utils";
 import { submitReport } from "@/services/reports";
 import { uploadReportImage, validateReportImage } from "@/services/report-images";
@@ -20,6 +20,7 @@ import { CategorySelector } from "./CategorySelector";
 import { ImageUploader, type PhotoUploadState } from "./ImageUploader";
 import { LocationPicker } from "./LocationPicker";
 import { PhotoAnalysisPanel, type PhotoAnalysisState } from "./PhotoAnalysisPanel";
+import { WastePhoto } from "./WastePhoto";
 
 const STEPS = ["Photo & AI", "Location", "Details", "Review"];
 const SENSITIVE_OPTIONS = ["School", "Hospital", "Residential area", "Water body", "Market", "Other"];
@@ -188,6 +189,9 @@ export function ReportWizard() {
   };
 
   if (submitted) {
+    const categoryInfo = getCategory(submitted.category);
+    const photoSrc = submitted.imageUrl || previewUrl || undefined;
+
     return (
       <section aria-labelledby="success-title" className="animate-fade-up mx-auto max-w-xl space-y-6 rounded-3xl border border-border bg-card p-6 text-center shadow-sm sm:p-8">
         <span className="mx-auto flex size-20 items-center justify-center rounded-full bg-success/10 text-success">
@@ -197,8 +201,35 @@ export function ReportWizard() {
           <h2 id="success-title" className="text-2xl font-semibold text-foreground">
             Report Submitted Successfully
           </h2>
-          <p className="text-muted-foreground">Your report has been registered.</p>
+          <p className="text-muted-foreground">Your report has been registered with the municipal authority.</p>
         </div>
+
+        {/* Uploaded Photo & Report Preview Card */}
+        <div className="overflow-hidden rounded-2xl border border-border bg-muted/40 shadow-sm text-left">
+          <div className="relative aspect-[16/10] w-full overflow-hidden bg-muted">
+            <WastePhoto
+              category={submitted.category}
+              src={photoSrc}
+              alt={`${categoryInfo.label} photo for report ${submitted.reportNumber}`}
+            />
+            <div className="absolute left-3 top-3">
+              <CategoryBadge category={submitted.category} className="bg-card/95 shadow-sm" />
+            </div>
+          </div>
+          <div className="space-y-2 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-base font-semibold text-foreground">{categoryInfo.label}</h3>
+              <StatusBadge status={submitted.status} />
+            </div>
+            {submitted.location?.address ? (
+              <p className="flex items-start gap-1.5 text-sm text-muted-foreground">
+                <IconMapPin size={16} className="mt-0.5 shrink-0 text-brand" aria-hidden="true" />
+                <span>{formatReportLocation(submitted.location)}</span>
+              </p>
+            ) : null}
+          </div>
+        </div>
+
         <dl className="grid grid-cols-2 gap-4 rounded-2xl bg-muted/60 p-4 text-left">
           <div>
             <dt className="text-xs font-medium text-muted-foreground">Report ID</dt>
