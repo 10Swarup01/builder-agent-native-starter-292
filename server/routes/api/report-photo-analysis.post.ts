@@ -11,7 +11,7 @@ import {
   analyzeWastePhoto,
   detectReportImageType,
   parseStoredWasteAnalysis,
-  readGeminiConfig,
+  readAiConfig,
   WastePhotoError,
   type WastePhotoErrorCode,
 } from "../../lib/waste-photo-analysis";
@@ -42,7 +42,7 @@ export default defineEventHandler(async (event) => {
     const cached = await findSucceededAnalysis(supabase, imagePath);
     if (cached) return cached;
 
-    const config = readGeminiConfig(process.env);
+    const config = readAiConfig(process.env);
     const admin = createSupabaseAdminClient();
     await assertWithinRateLimit(supabase);
 

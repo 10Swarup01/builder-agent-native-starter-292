@@ -10,9 +10,10 @@ import {
 } from "../../shared/waste-analysis";
 
 export const DEFAULT_GEMINI_MODEL = "gemini-3.8-flash";
+export const DEFAULT_GROQ_MODEL = "qwen/qwen3.8-27b";
 
 const REQUEST_TIMEOUT_MS = 30_000;
-const MODEL_ID_PATTERN = /^[a-z0-9][a-z0-9.-]{0,79}$/;
+const MODEL_ID_PATTERN = /^[a-z0-9][a-z0-9._\/-]{0,79}$/i;
 const BLOCKED_FINISH_REASONS: readonly string[] = [
   FinishReason.SAFETY,
   FinishReason.BLOCKLIST,
@@ -74,8 +75,31 @@ export class WastePhotoError extends Error {
 }
 
 export interface GeminiConfig {
+  provider?: "gemini";
   apiKey: string;
   model: string;
+}
+
+export interface GroqConfig {
+  provider: "groq";
+  apiKey: string;
+  model: string;
+}
+
+export type AiConfig = GeminiConfig | GroqConfig;
+
+export function readAiConfig(env: Record<string, string | undefined>): AiConfig {
+  const groqKey = env.GROQ_API_KEY?.trim();
+  if (groqKey) {
+    const model = env.GROQ_MODEL?.trim() || DEFAULT_GROQ_MODEL;
+    if (!MODEL_ID_PATTERN.test(model)) {
+      console.error("[waste-photo-analysis] GROQ_MODEL is not a valid model id");
+      throw new WastePhotoError("not_configured");
+    }
+    return { provider: "groq", apiKey: groqKey, model };
+  }
+  const geminiConfig = readGeminiConfig(env);
+  return { provider: "gemini", ...geminiConfig };
 }
 
 export function readGeminiConfig(env: Record<string, string | undefined>): GeminiConfig {
@@ -256,14 +280,77 @@ function classifyProviderError(error: unknown): WastePhotoError {
   return new WastePhotoError("provider_unavailable");
 }
 
+async function analyzeWithGroq(
+  photo: { bytes: Uint8Array; mimeType: ReportImageType },
+  config: GroqConfig,
+): Promise<WasteAnalysis> {
+  const dataUrl = `data:${photo.mimeType};base64,${Buffer.from(photo.bytes).toString("base64")}`;
+  const prompt = `${SYSTEM_INSTRUCTION} Respond ONLY with a JSON object matching this schema: ${JSON.stringify(RESPONSE_JSON_SCHEMA)}`;
+
+  let response: Response;
+  try {
+    response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${config.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: config.model,
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: `${prompt}\n\n${USER_PROMPT}` },
+              { type: "image_url", image_url: { url: dataUrl } },
+            ],
+          },
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.1,
+      }),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+  } catch (error) {
+    if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
+      throw new WastePhotoError("timeout");
+    }
+    console.error("[waste-photo-analysis] Groq network request failed", error);
+    throw new WastePhotoError("provider_unavailable");
+  }
+
+  if (!response.ok) {
+    console.error("[waste-photo-analysis] Groq request failed", { status: response.status });
+    if (response.status === 401 || response.status === 403) throw new WastePhotoError("provider_auth_failed");
+    if (response.status === 429) throw new WastePhotoError("provider_rate_limited");
+    if (response.status === 400 || response.status === 413) throw new WastePhotoError("provider_rejected");
+    throw new WastePhotoError("provider_unavailable");
+  }
+
+  const payload = (await response.json().catch(() => null)) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  } | null;
+  const rawText = payload?.choices?.[0]?.message?.content;
+  if (!rawText || typeof rawText !== "string") {
+    throw new WastePhotoError("invalid_response");
+  }
+
+  return parseWasteAnalysis(rawText);
+}
+
 export async function analyzeWastePhoto(
   photo: { bytes: Uint8Array; mimeType: ReportImageType },
-  config: GeminiConfig,
-  client: Pick<GoogleGenAI, "models"> = new GoogleGenAI({ apiKey: config.apiKey }),
+  config: AiConfig | GeminiConfig,
+  client?: Pick<GoogleGenAI, "models">,
 ): Promise<WasteAnalysis> {
+  if (config.provider === "groq") {
+    return analyzeWithGroq(photo, config);
+  }
+
+  const geminiClient = client ?? new GoogleGenAI({ apiKey: config.apiKey });
   let response: GenerateContentResponse;
   try {
-    response = await client.models.generateContent({
+    response = await geminiClient.models.generateContent({
       model: config.model,
       contents: [
         {

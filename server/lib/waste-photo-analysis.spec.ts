@@ -6,9 +6,11 @@ import { AI_CATEGORY_TO_WASTE_ID, AI_WASTE_CATEGORIES } from "../../shared/waste
 import {
   analyzeWastePhoto,
   DEFAULT_GEMINI_MODEL,
+  DEFAULT_GROQ_MODEL,
   detectReportImageType,
   parseStoredWasteAnalysis,
   parseWasteAnalysis,
+  readAiConfig,
   readGeminiConfig,
   WastePhotoError,
   type WastePhotoErrorCode,
@@ -89,6 +91,36 @@ describe("readGeminiConfig", () => {
     }
     expect(thrown).toBeInstanceOf(WastePhotoError);
     expect((thrown as Error).message).not.toContain("test-secret-key");
+  });
+});
+
+describe("readAiConfig", () => {
+  it("prefers Groq when GROQ_API_KEY is present", () => {
+    expect(readAiConfig({ GROQ_API_KEY: "groq-key" })).toEqual({
+      provider: "groq",
+      apiKey: "groq-key",
+      model: DEFAULT_GROQ_MODEL,
+    });
+  });
+
+  it("accepts a custom Groq model with slashes", () => {
+    expect(readAiConfig({ GROQ_API_KEY: "groq-key", GROQ_MODEL: "qwen/qwen3.8-27b" })).toEqual({
+      provider: "groq",
+      apiKey: "groq-key",
+      model: "qwen/qwen3.8-27b",
+    });
+  });
+
+  it("falls back to Gemini when GROQ_API_KEY is missing", () => {
+    expect(readAiConfig({ GEMINI_API_KEY: "gemini-key" })).toEqual({
+      provider: "gemini",
+      apiKey: "gemini-key",
+      model: DEFAULT_GEMINI_MODEL,
+    });
+  });
+
+  it("throws not_configured when neither key is provided", () => {
+    expect(codeOf(() => readAiConfig({}))).toBe("not_configured");
   });
 });
 
