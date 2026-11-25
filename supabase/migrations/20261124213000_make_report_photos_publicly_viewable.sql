@@ -14,7 +14,7 @@ UPDATE storage.buckets
 SET public = true
 WHERE id = 'report-images';
 
--- 2. Allow public and authenticated users to read submitted report photos
+-- 2. Allow public and authenticated users to read submitted report photos in storage
 DROP POLICY IF EXISTS "report_images_select_submitted_photos" ON storage.objects;
 
 CREATE POLICY "report_images_select_submitted_photos" ON storage.objects
@@ -26,3 +26,22 @@ CREATE POLICY "report_images_select_submitted_photos" ON storage.objects
       WHERE ri.image_url = storage.objects.name
     )
   );
+
+-- 3. Ensure public and anonymous visitors can read reports, waste categories, and report photo metadata
+GRANT SELECT ON public.waste_categories, public.reports, public.report_images, public.report_status_history TO anon, authenticated;
+
+DROP POLICY IF EXISTS "read_waste_categories" ON public.waste_categories;
+CREATE POLICY "read_waste_categories" ON public.waste_categories
+  FOR SELECT TO anon, authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "read_reports" ON public.reports;
+CREATE POLICY "read_reports" ON public.reports
+  FOR SELECT TO anon, authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "read_report_images" ON public.report_images;
+CREATE POLICY "read_report_images" ON public.report_images
+  FOR SELECT TO anon, authenticated
+  USING (true);
+

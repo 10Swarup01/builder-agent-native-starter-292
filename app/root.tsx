@@ -31,8 +31,32 @@ export const links: LinksFunction = () => [
 
 const THEME_INIT_SCRIPT = getThemeInitScript();
 
-// Must match the auth pages that render without a session in app/routes.
-const PUBLIC_PATHS = ["/login", "/signup", "/forgot-password", "/reset-password", "/confirm"];
+// Public paths accessible without an active session (supports guest exploration)
+const PUBLIC_PATH_PREFIXES = [
+  "/login",
+  "/signup",
+  "/forgot-password",
+  "/reset-password",
+  "/confirm",
+  "/report",
+  "/problems",
+  "/resolved",
+  "/map",
+  "/authorities",
+  "/forecast",
+  "/analytics",
+  "/contact",
+];
+
+function isPublicRoute(pathname: string): boolean {
+  if (pathname === "/") return true;
+  if (pathname.startsWith("/admin") || pathname === "/profile" || pathname.startsWith("/profile/")) {
+    return false;
+  }
+  return PUBLIC_PATH_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -82,7 +106,7 @@ function DbSyncSetup() {
 export default function Root() {
   const [queryClient] = useState(() => createAgentNativeQueryClient());
   const { pathname } = useLocation();
-  const isPublicPath = PUBLIC_PATHS.includes(pathname);
+  const isPublicPath = isPublicRoute(pathname);
   return (
     <AppToolkitProvider>
       <AppProviders queryClient={queryClient} isPublicPath={isPublicPath}>

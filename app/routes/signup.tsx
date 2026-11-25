@@ -1,3 +1,4 @@
+import { IconShield, IconUserCheck } from "@tabler/icons-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
@@ -108,16 +109,45 @@ export default function SignupRoute() {
         </Button>
       </form>
 
-      <Button asChild variant="ghost" size="lg" className="min-h-12 w-full">
-        <Link to="/">Continue as Guest</Link>
-      </Button>
+      <div className="space-y-4 pt-2">
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t border-border/80" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-card px-2 text-muted-foreground font-medium">Or explore first</span>
+          </div>
+        </div>
 
-      <p className="text-center text-sm text-muted-foreground">
-        Already registered?{" "}
-        <Link to="/login" className="font-medium text-brand hover:underline">
-          Login
-        </Link>
-      </p>
+        <Button
+          asChild
+          variant="outline"
+          size="lg"
+          className="min-h-12 w-full text-base font-medium border-border/80 hover:bg-muted transition"
+        >
+          <Link to="/" className="flex items-center justify-center gap-2">
+            <IconUserCheck size={18} className="text-muted-foreground" />
+            Continue as Guest
+          </Link>
+        </Button>
+
+        <p className="text-center text-sm text-muted-foreground">
+          Already registered?{" "}
+          <Link to="/login" className="font-medium text-brand hover:underline">
+            Login
+          </Link>
+        </p>
+
+        <div className="border-t border-border/70 pt-3 text-center">
+          <Link
+            to="/login?mode=admin"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition"
+          >
+            <IconShield size={14} />
+            Municipal Official or Staff? Sign in via Admin Portal →
+          </Link>
+        </div>
+      </div>
     </AuthShell>
   );
 }

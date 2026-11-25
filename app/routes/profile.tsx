@@ -1,4 +1,4 @@
-import { IconBell, IconBookmark, IconCamera, IconCircleCheck, IconClipboardList, IconLogout, IconMapPin, IconSettings, IconClock } from "@tabler/icons-react";
+import { IconBell, IconBookmark, IconCamera, IconCircleCheck, IconClipboardList, IconLogout, IconMapPin, IconSettings, IconClock, IconUser, IconUserCheck } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
@@ -54,6 +54,35 @@ export default function ProfileRoute() {
     } finally {
       setSaving(false);
     }
+  }
+
+  const isGuest = Boolean(user.error && (user.error.message.includes("not signed in") || user.error.message.includes("session")));
+
+  if (isGuest && !user.loading) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="My Profile" icon={IconClipboardList} />
+        <Card className="flex flex-col items-center gap-5 rounded-3xl border-border/70 p-8 text-center shadow-sm">
+          <span className="flex size-20 items-center justify-center rounded-full bg-brand/10 text-brand">
+            <IconUserCheck size={36} aria-hidden="true" />
+          </span>
+          <div className="max-w-md space-y-2">
+            <h2 className="text-xl font-semibold text-foreground">Guest Explorer</h2>
+            <p className="text-sm text-muted-foreground">
+              You are currently browsing WasteWise AI as a guest. Sign in or create an account to submit waste reports, track problem resolutions, and manage your civic profile.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+            <Button asChild size="lg" className="min-h-11">
+              <Link to="/login">Sign In</Link>
+            </Button>
+            <Button asChild variant="outline" size="lg" className="min-h-11">
+              <Link to="/signup">Create Account</Link>
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
   }
 
   return (

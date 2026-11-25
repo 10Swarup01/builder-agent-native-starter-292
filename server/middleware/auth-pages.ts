@@ -9,8 +9,11 @@ const APP_AUTH_PAGES = new Set(["/login", "/signup"]);
 
 export default defineEventHandler((event) => {
   const url = getRequestURL(event);
-  if (url.pathname === "/sign-in") {
+  if (url.pathname === "/sign-in" || url.pathname === "/signin") {
     return sendRedirect(event, `/login${url.search}`, 302);
+  }
+  if (url.pathname === "/admin-login" || url.pathname === "/admin/login") {
+    return sendRedirect(event, `/login?mode=admin`, 302);
   }
   if (getMethod(event) === "GET" && APP_AUTH_PAGES.has(url.pathname)) {
     return renderAppShell(event);

@@ -77,14 +77,7 @@ describe("submitReport", () => {
     await expect(submitReport(input)).rejects.toThrow("Your waste report could not be saved. Please try again.");
   });
 
-  it("falls back to /api/report-image proxy when createSignedUrls returns no signed URL", async () => {
-    supabase.storage.from.mockImplementation(() => ({
-      createSignedUrls: async (paths: string[]) => ({
-        data: paths.map((path) => ({ path, signedUrl: null })),
-        error: null,
-      }),
-    }));
-
+  it("maps image storage paths to /api/report-image proxy for reliable display", async () => {
     const report = await submitReport(input);
     expect(report.imageUrl).toBe(`/api/report-image?path=${encodeURIComponent(input.imagePath)}`);
   });

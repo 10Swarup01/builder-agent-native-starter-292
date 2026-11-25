@@ -58,31 +58,12 @@ function categoryIdFromName(name: string | null | undefined): WasteCategoryId {
 async function signedImageUrls(paths: string[]): Promise<Map<string, string>> {
   const urls = new Map<string, string>();
   if (paths.length === 0) return urls;
-  const client = getSupabaseBrowserClient();
 
-  try {
-    const { data } = await client.storage.from(REPORT_IMAGE_BUCKET).createSignedUrls(paths, SIGNED_URL_SECONDS);
-    if (Array.isArray(data)) {
-      data.forEach((entry, idx) => {
-        const signed = entry?.signedUrl || (entry as unknown as { signedURL?: string })?.signedURL;
-        if (signed) {
-          if (entry.path) urls.set(entry.path, signed);
-          if (paths[idx]) urls.set(paths[idx], signed);
-        }
-      });
-    }
-  } catch (err) {
-    console.warn("[reports] createSignedUrls failed, falling back to server image proxy", err);
-  }
-
-  // Ensure every path has a reliable URL:
-  // If createSignedUrls failed (private bucket or anonymous visitor),
-  // fallback to our server proxy route /api/report-image which uses service role.
   for (const path of paths) {
     if (!path) continue;
     if (path.startsWith("http://") || path.startsWith("https://") || path.startsWith("data:") || path.startsWith("blob:") || path.startsWith("/")) {
       urls.set(path, path);
-    } else if (!urls.has(path) || !urls.get(path)) {
+    } else {
       urls.set(path, `/api/report-image?path=${encodeURIComponent(path)}`);
     }
   }

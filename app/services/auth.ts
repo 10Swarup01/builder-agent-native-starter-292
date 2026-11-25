@@ -45,7 +45,12 @@ export async function getCurrentUser(): Promise<CurrentUser> {
 
   const ownReports = summarizeReports(await listOwnReports());
 
-  const userRole = (profile?.role || user.app_metadata?.role || "citizen") as UserRole;
+  const userRole: UserRole =
+    profile?.role === "admin" || user.app_metadata?.role === "admin"
+      ? "admin"
+      : profile?.role === "authority" || user.app_metadata?.role === "authority"
+        ? "authority"
+        : "citizen";
 
   return {
     id: user.id,
@@ -90,6 +95,33 @@ function describeAuthError(message: string) {
 export async function signInWithPassword(email: string, password: string) {
   const { error } = await getSupabaseBrowserClient().auth.signInWithPassword({ email, password });
   if (error) throw new Error(describeAuthError(error.message));
+}
+
+export async function signInAsAdmin(email: string, password: string): Promise<CurrentUser> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) throw new Error(describeAuthError(error.message));
+
+  const user = data.user;
+  if (!user) throw new Error("Authentication failed. Please try again.");
+
+  // Direct database query for verified profile role
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  const isProfileAdmin = profile?.role === "admin";
+  const isAppMetadataAdmin = user.app_metadata?.role === "admin";
+
+  if (profileError || (!isProfileAdmin && !isAppMetadataAdmin)) {
+    // Immediately log out unauthorized user so no session remains active
+    await supabase.auth.signOut();
+    throw new Error("This account does not have administrator access.");
+  }
+
+  return getCurrentUser();
 }
 
 export async function signUpWithPassword({ name, email, password }: { name: string; email: string; password: string }) {
