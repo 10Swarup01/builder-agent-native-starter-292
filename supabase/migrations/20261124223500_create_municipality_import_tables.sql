@@ -53,7 +53,7 @@ BEGIN
     -- Citizen default on creation unless caller is verified admin or service_role
     IF NEW.role IS NOT NULL AND NEW.role <> 'citizen' THEN
       IF NOT (
-        pg_catalog.current_user IN ('postgres', 'supabase_admin')
+        CURRENT_USER IN ('postgres', 'supabase_admin')
         OR (COALESCE(NULLIF(pg_catalog.current_setting('request.jwt.claim.role', true), ''), '') = 'service_role')
         OR (COALESCE(NULLIF(pg_catalog.current_setting('role', true), ''), '') = 'service_role')
         OR (public.is_admin())
@@ -65,7 +65,7 @@ BEGIN
     -- If role is changing, caller must be an authorized admin or service_role
     IF NEW.role IS DISTINCT FROM OLD.role THEN
       IF NOT (
-        pg_catalog.current_user IN ('postgres', 'supabase_admin')
+        CURRENT_USER IN ('postgres', 'supabase_admin')
         OR (COALESCE(NULLIF(pg_catalog.current_setting('request.jwt.claim.role', true), ''), '') = 'service_role')
         OR (COALESCE(NULLIF(pg_catalog.current_setting('role', true), ''), '') = 'service_role')
         OR (public.is_admin())
@@ -93,7 +93,7 @@ SET search_path = ''
 AS $$
 BEGIN
   IF NOT (
-    pg_catalog.current_user IN ('postgres', 'supabase_admin')
+    CURRENT_USER IN ('postgres', 'supabase_admin')
     OR (COALESCE(NULLIF(pg_catalog.current_setting('request.jwt.claim.role', true), ''), '') = 'service_role')
     OR (public.is_admin())
   ) THEN
