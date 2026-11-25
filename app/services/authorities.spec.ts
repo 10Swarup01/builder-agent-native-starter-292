@@ -13,7 +13,7 @@ vi.mock("./demo", () => ({
 }));
 
 import { DEMO_AUTHORITIES } from "@/lib/mock-data";
-import { getAuthority, listAuthorities } from "./authorities";
+import { getAuthority, listAuthorities, matchAuthorityForLocation } from "./authorities";
 
 describe("Authorities Service", () => {
   beforeEach(() => {
@@ -115,5 +115,31 @@ describe("Authorities Service", () => {
     expect(authority).toBeDefined();
     expect(authority?.name).toBe("FIRHAD HAKIM");
     expect(authority?.ward).toBe("Ward 82");
+  });
+
+  describe("matchAuthorityForLocation", () => {
+    it("matches authority by explicit ward number in address", () => {
+      const matched = matchAuthorityForLocation({
+        address: "College Street, Ward 16, Kolkata",
+      });
+      expect(matched).toBeDefined();
+      expect(matched?.wardNumber).toBe(16);
+    });
+
+    it("matches authority by 6-digit PIN code", () => {
+      const matched = matchAuthorityForLocation({
+        address: "Near Sealdah Railway Station, Kolkata, 700011, India",
+      });
+      expect(matched).toBeDefined();
+      expect(matched?.officeAddress).toContain("700011");
+    });
+
+    it("matches authority by zone name for Thakurpukur / Maheshtala", () => {
+      const matched = matchAuthorityForLocation({
+        address: "Nungi More Daulatpur Rd, Thakurpukur Maheshtala community development block, 700140, India",
+      });
+      expect(matched).toBeDefined();
+      expect([142, 143, 144]).toContain(matched?.wardNumber);
+    });
   });
 });

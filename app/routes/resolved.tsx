@@ -60,7 +60,7 @@ export default function ResolvedRoute() {
                   </div>
                   <div>
                     <dt className="text-xs text-muted-foreground">Responsible authority</dt>
-                    <dd className="text-foreground">Assignment pending</dd>
+                    <dd className="text-foreground">{report.authorityName ?? "Assignment pending"}</dd>
                   </div>
                 </dl>
               </Card>

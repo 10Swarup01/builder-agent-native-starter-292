@@ -1,5 +1,6 @@
 import { isValidCoordinate } from "@/lib/mapbox";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
+import { listAuthorities, matchAuthorityForLocation } from "./authorities";
 import { REPORT_IMAGE_BUCKET } from "../../shared/report-photo";
 import {
   getCategory,
@@ -22,6 +23,7 @@ export interface NewReportInput {
   sensitiveLocations: string[];
   location: ReportLocation;
   imagePath: string;
+  authorityId?: string;
 }
 
 const SIGNED_URL_SECONDS = 60 * 60;
@@ -36,6 +38,7 @@ interface ReportRow {
   latitude: number | null;
   longitude: number | null;
   address: string | null;
+  authority_id?: string | number | null;
   severity: Severity | null;
   status: ReportStatus;
   created_at: string;
@@ -47,7 +50,7 @@ interface ReportRow {
 }
 
 const REPORT_SELECT =
-  "id, report_number, category_id, description, quantity, blocking_traffic, latitude, longitude, address, severity, status, created_at, resolved_at, duration, sensitive_locations, waste_categories(name), report_images(image_url, image_type)";
+  "id, report_number, category_id, description, quantity, blocking_traffic, latitude, longitude, address, authority_id, severity, status, created_at, resolved_at, duration, sensitive_locations, waste_categories(name), report_images(image_url, image_type)";
 
 function categoryIdFromName(name: string | null | undefined): WasteCategoryId {
   return (["plastic", "household", "medical", "chemical", "liquid", "ewaste", "glass", "metal", "organic", "mixed"] as const).find(
@@ -73,7 +76,11 @@ async function signedImageUrls(paths: string[]): Promise<Map<string, string>> {
 
 async function toWasteReports(rows: ReportRow[]): Promise<WasteReport[]> {
   const imagePaths = rows.flatMap((row) => row.report_images.map((image) => image.image_url));
-  const urls = await signedImageUrls(imagePaths);
+  const [urls, authorities] = await Promise.all([
+    signedImageUrls(imagePaths),
+    listAuthorities().catch(() => []),
+  ]);
+
   return rows.map((row) => {
     const original = row.report_images.find((image) => image.image_type === "original") ?? row.report_images[0];
     const resolution = row.report_images.find((image) => image.image_type === "resolution");
@@ -83,6 +90,18 @@ async function toWasteReports(rows: ReportRow[]): Promise<WasteReport[]> {
     const resolutionUrl = resolution
       ? (urls.get(resolution.image_url) || (resolution.image_url.startsWith("http") ? resolution.image_url : `/api/report-image?path=${encodeURIComponent(resolution.image_url)}`))
       : undefined;
+
+    // Resolve matching municipal authority based on stored authority_id or location details
+    const matchedAuth =
+      (row.authority_id ? authorities.find((a) => a.id === String(row.authority_id)) : undefined) ||
+      matchAuthorityForLocation(
+        { address: row.address ?? "", latitude: row.latitude ?? 0, longitude: row.longitude ?? 0 },
+        authorities,
+      );
+
+    const authorityName = matchedAuth ? `${matchedAuth.name} (${matchedAuth.ward})` : "Assignment pending";
+    const authorityId = matchedAuth?.id ?? (row.authority_id ? String(row.authority_id) : "");
+
     return {
       id: row.id,
       reportNumber: row.report_number,
@@ -100,12 +119,15 @@ async function toWasteReports(rows: ReportRow[]): Promise<WasteReport[]> {
       sensitiveLocations: row.sensitive_locations ?? [],
       location: {
         address: row.address ?? "",
-        area: "",
-        ward: "",
+        area: matchedAuth?.area ?? "",
+        ward: matchedAuth?.ward ?? "",
         latitude: row.latitude ?? 0,
         longitude: row.longitude ?? 0,
+        authorityId,
+        authorityName,
       },
-      authorityId: "",
+      authorityId,
+      authorityName,
       createdAt: row.created_at,
       resolvedAt: row.resolved_at ?? undefined,
     };
@@ -299,6 +321,7 @@ export async function submitReport(input: NewReportInput): Promise<WasteReport> 
       latitude: input.location.latitude,
       longitude: input.location.longitude,
       address: input.location.address,
+      authority_id: input.authorityId,
       severity: null,
       status: "reported",
       created_at: inserted.created_at,

@@ -66,7 +66,14 @@ function ReportDetail({ report, history }: { report: WasteReport; history: Repor
     { label: "Sensitive locations", value: sensitiveLocations.length > 0 ? sensitiveLocations.join(", ") : "None recorded" },
     { label: "Submitted", value: `${formatDate(report.createdAt)} · ${formatTime(report.createdAt)}` },
     ...(report.resolvedAt ? [{ label: "Resolved", value: `${formatDate(report.resolvedAt)} · ${formatTime(report.resolvedAt)}` }] : []),
-    { label: "Authority", value: "Assignment pending" },
+    {
+      label: "Authority",
+      value: report.authorityName && report.authorityName !== "Assignment pending" ? (
+        <span className="font-medium text-foreground">{report.authorityName}</span>
+      ) : (
+        "Assignment pending"
+      ),
+    },
     { label: "Status", value: <StatusBadge status={report.status} /> },
   ];
 

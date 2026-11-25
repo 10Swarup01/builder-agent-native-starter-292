@@ -1,10 +1,11 @@
-import { IconCircleCheck, IconCurrentLocation } from "@tabler/icons-react";
+import { IconBuildingCommunity, IconCircleCheck, IconCurrentLocation } from "@tabler/icons-react";
 import type { Marker, MapMouseEvent } from "mapbox-gl";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { ADDRESS_ZOOM, LOCATE_ZOOM, type MapStyleMode } from "@/lib/mapbox";
-import type { ReportLocation } from "@/lib/waste";
+import type { Authority, ReportLocation } from "@/lib/waste";
+import { listAuthorities, matchAuthorityForLocation } from "@/services/authorities";
 import {
   getCurrentPosition,
   getGeolocationAccess,
@@ -38,9 +39,33 @@ export function LocationPicker({ value, onChange }: LocationPickerProps) {
   const [locating, setLocating] = useState(false);
   const [access, setAccess] = useState<GeolocationAccess | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [authorities, setAuthorities] = useState<Authority[]>([]);
+  const [matchedAuth, setMatchedAuth] = useState<Authority | null>(null);
   const lookupRef = useRef<AbortController | null>(null);
 
   useEffect(() => () => lookupRef.current?.abort(), []);
+
+  useEffect(() => {
+    let active = true;
+    void listAuthorities().then((list) => {
+      if (active) setAuthorities(list);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (place || pin) {
+      const matched = matchAuthorityForLocation(
+        { address: place?.address, area: place?.area, latitude: pin?.latitude, longitude: pin?.longitude },
+        authorities,
+      );
+      setMatchedAuth(matched || null);
+    } else {
+      setMatchedAuth(null);
+    }
+  }, [place, pin, authorities]);
 
   const resolvePin = useCallback((point: GeoPoint) => {
     lookupRef.current?.abort();
@@ -120,7 +145,15 @@ export function LocationPicker({ value, onChange }: LocationPickerProps) {
 
   const confirm = () => {
     if (!pin || !place) return;
-    onChange({ address: place.address, area: place.area, ward: "", latitude: pin.latitude, longitude: pin.longitude });
+    onChange({
+      address: place.address,
+      area: place.area,
+      ward: matchedAuth?.ward || "",
+      latitude: pin.latitude,
+      longitude: pin.longitude,
+      authorityId: matchedAuth?.id,
+      authorityName: matchedAuth ? `${matchedAuth.name} (${matchedAuth.ward})` : undefined,
+    });
   };
 
   const accessNote =
@@ -167,6 +200,24 @@ export function LocationPicker({ value, onChange }: LocationPickerProps) {
           <dd className="mt-1 font-medium tabular-nums text-foreground">{pin ? `${pin.latitude.toFixed(5)}, ${pin.longitude.toFixed(5)}` : "—"}</dd>
         </div>
       </dl>
+
+      {matchedAuth ? (
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-brand/40 bg-brand/5 p-4 animate-fade-in">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand">
+              <IconBuildingCommunity size={22} aria-hidden="true" />
+            </span>
+            <div className="min-w-0 space-y-0.5">
+              <p className="text-xs font-semibold uppercase tracking-wider text-brand">Assigned Municipal Authority</p>
+              <p className="truncate text-sm font-semibold text-foreground">{matchedAuth.name}</p>
+              <p className="truncate text-xs text-muted-foreground">{matchedAuth.ward} · {matchedAuth.municipality || matchedAuth.area}</p>
+            </div>
+          </div>
+          <span className="shrink-0 rounded-full border border-brand/20 bg-brand/10 px-2.5 py-1 text-xs font-medium text-brand">
+            Auto-assigned
+          </span>
+        </div>
+      ) : null}
 
       <Button size="lg" className="min-h-12 w-full" onClick={confirm} disabled={!canConfirm}>
         {confirmed ? <IconCircleCheck size={18} aria-hidden="true" /> : null}

@@ -45,7 +45,7 @@ export function ReportCard({ report, authorityName }: ReportCardProps) {
           </div>
           <div>
             <dt className="text-xs text-muted-foreground">Authority</dt>
-            <dd className="truncate text-foreground">{authorityName ?? "Assignment pending"}</dd>
+            <dd className="truncate text-foreground">{authorityName ?? report.authorityName ?? "Assignment pending"}</dd>
           </div>
         </dl>
         <Button asChild variant="outline" className="mt-auto min-h-11 w-full">

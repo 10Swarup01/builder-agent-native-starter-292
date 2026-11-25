@@ -145,6 +145,7 @@ export function ReportWizard() {
         sensitiveLocations: sensitive,
         location,
         imagePath: uploadedPath,
+        authorityId: location.authorityId,
       });
       setSubmitted(report);
     } catch (error) {
@@ -236,9 +237,9 @@ export function ReportWizard() {
             <dd className="mt-1 font-mono text-base font-semibold text-foreground">{submitted.reportNumber}</dd>
           </div>
           <div>
-            <dt className="text-xs font-medium text-muted-foreground">Status</dt>
-            <dd className="mt-1">
-              <StatusBadge status={submitted.status} />
+            <dt className="text-xs font-medium text-muted-foreground">Assigned Authority</dt>
+            <dd className="mt-1 text-sm font-semibold text-foreground">
+              {submitted.authorityName || submitted.location?.authorityName || "Auto-Assigned"}
             </dd>
           </div>
         </dl>
@@ -484,6 +485,12 @@ export function ReportWizard() {
                   <dt className="text-xs font-medium text-muted-foreground">Location</dt>
                   <dd className="mt-1 text-foreground">{location ? location.address : "Not set"}</dd>
                 </div>
+                {location?.authorityName ? (
+                  <div className="sm:col-span-2">
+                    <dt className="text-xs font-medium text-brand">Assigned Municipal Authority</dt>
+                    <dd className="mt-1 font-semibold text-foreground">{location.authorityName}</dd>
+                  </div>
+                ) : null}
                 <div className="sm:col-span-2">
                   <dt className="text-xs font-medium text-muted-foreground">Description</dt>
                   <dd className="mt-1 text-foreground">{description.trim() || "No description added"}</dd>

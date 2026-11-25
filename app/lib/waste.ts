@@ -90,6 +90,8 @@ export interface ReportLocation {
   ward: string;
   latitude: number;
   longitude: number;
+  authorityId?: string;
+  authorityName?: string;
 }
 
 export interface WasteReport {
@@ -109,6 +111,7 @@ export interface WasteReport {
   sensitiveLocations?: string[];
   location: ReportLocation;
   authorityId: string;
+  authorityName?: string;
   createdAt: string;
   resolvedAt?: string;
 }
