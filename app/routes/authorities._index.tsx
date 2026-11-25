@@ -18,9 +18,19 @@ export default function AuthoritiesRoute() {
 
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase();
-    return (authorities.data ?? []).filter((authority) =>
-      !term || [authority.ward, authority.area, authority.name].join(" ").toLowerCase().includes(term),
-    );
+    if (!term) return authorities.data ?? [];
+    return (authorities.data ?? []).filter((authority) => {
+      const searchable = [
+        authority.name,
+        authority.ward,
+        String(authority.wardNumber ?? ""),
+        authority.area,
+        authority.district ?? "",
+        authority.municipality ?? "",
+        authority.officeAddress,
+      ].join(" ").toLowerCase();
+      return searchable.includes(term);
+    });
   }, [authorities.data, query]);
 
   return (

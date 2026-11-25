@@ -36,7 +36,7 @@ export async function getCurrentUser(): Promise<CurrentUser> {
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("full_name, phone, avatar_url")
+    .select("full_name, phone, avatar_url, role")
     .eq("id", user.id)
     .single();
   if (profileError) {
@@ -45,13 +45,15 @@ export async function getCurrentUser(): Promise<CurrentUser> {
 
   const ownReports = summarizeReports(await listOwnReports());
 
+  const userRole = (profile?.role || user.app_metadata?.role || "citizen") as UserRole;
+
   return {
     id: user.id,
     name: profile.full_name || user.email,
     email: user.email,
     phone: profile.phone ?? "",
     avatarUrl: profile.avatar_url,
-    role: "citizen",
+    role: userRole,
     reportsSubmitted: ownReports.totalReports,
     activeReports: ownReports.activeProblems,
     resolvedReports: ownReports.resolved,

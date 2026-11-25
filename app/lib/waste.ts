@@ -130,10 +130,14 @@ export interface Authority {
   designation: string;
   ward: string;
   area: string;
+  district?: string;
+  municipality?: string;
+  wardNumber?: number;
   officeAddress: string;
   phone: string;
   email: string;
   isActive: boolean;
+  isVerified?: boolean;
   activeReports: number;
   resolvedReports: number;
   averageResolutionHours: number;
