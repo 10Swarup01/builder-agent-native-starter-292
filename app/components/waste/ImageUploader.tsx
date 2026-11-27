@@ -1,5 +1,6 @@
-import { IconAlertTriangle, IconCamera, IconPhoto, IconRefresh, IconTrash, IconUpload } from "@tabler/icons-react";
+import { IconAlertTriangle, IconCamera, IconLogin, IconPhoto, IconRefresh, IconTrash, IconUpload } from "@tabler/icons-react";
 import { useRef, useState, type DragEvent } from "react";
+import { Link } from "react-router";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -78,26 +79,64 @@ export function ImageUploader({ previewUrl, uploadState, photoError, onSelect, o
           {uploadState === "error" && photoError ? (
             <p role="alert" className="flex items-start gap-2 rounded-xl bg-danger/10 px-4 py-3 text-sm text-danger">
               <IconAlertTriangle size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
-              {photoError}
+              <span>{photoError}</span>
             </p>
           ) : null}
-          <div className="grid grid-cols-2 gap-3">
-            {uploadState === "error" ? (
-              <Button variant="outline" className="min-h-12" onClick={onRetry}>
-                <IconRefresh size={18} aria-hidden="true" />
-                Try Again
-              </Button>
-            ) : (
+
+          {uploadState === "error" ? (
+            (() => {
+              const isAuthError = Boolean(
+                photoError &&
+                  (photoError.toLowerCase().includes("sign in") ||
+                    photoError.toLowerCase().includes("session") ||
+                    photoError.toLowerCase().includes("log in") ||
+                    photoError.toLowerCase().includes("unauthorized") ||
+                    photoError.toLowerCase().includes("not signed in")),
+              );
+              return isAuthError ? (
+                <div className="space-y-3">
+                  <Button asChild size="lg" className="min-h-12 w-full bg-brand text-brand-foreground hover:bg-brand/90 font-medium text-base shadow-sm">
+                    <Link to="/login?next=/report" className="flex items-center justify-center gap-2">
+                      <IconLogin size={20} aria-hidden="true" />
+                      Sign In to Continue
+                    </Link>
+                  </Button>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button variant="outline" className="min-h-11" onClick={onRetry}>
+                      <IconRefresh size={18} aria-hidden="true" />
+                      Try Again
+                    </Button>
+                    <Button variant="outline" className="min-h-11 text-danger hover:text-danger" onClick={onRemove}>
+                      <IconTrash size={18} aria-hidden="true" />
+                      Remove Image
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <Button variant="outline" className="min-h-12" onClick={onRetry}>
+                    <IconRefresh size={18} aria-hidden="true" />
+                    Try Again
+                  </Button>
+                  <Button variant="outline" className="min-h-12 text-danger hover:text-danger" onClick={onRemove}>
+                    <IconTrash size={18} aria-hidden="true" />
+                    Remove Image
+                  </Button>
+                </div>
+              );
+            })()
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
               <Button variant="outline" className="min-h-12" disabled={uploading} onClick={() => galleryInput.current?.click()}>
                 <IconRefresh size={18} aria-hidden="true" />
                 Change Image
               </Button>
-            )}
-            <Button variant="outline" className="min-h-12 text-danger hover:text-danger" disabled={uploading} onClick={onRemove}>
-              <IconTrash size={18} aria-hidden="true" />
-              Remove Image
-            </Button>
-          </div>
+              <Button variant="outline" className="min-h-12 text-danger hover:text-danger" disabled={uploading} onClick={onRemove}>
+                <IconTrash size={18} aria-hidden="true" />
+                Remove Image
+              </Button>
+            </div>
+          )}
         </div>
       ) : (
         <div

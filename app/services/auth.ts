@@ -1,4 +1,5 @@
 import { signOut as endAppSession } from "@agent-native/core/client";
+import type { User } from "@supabase/supabase-js";
 
 import { DEMO_USERS } from "@/lib/mock-data";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
@@ -7,6 +8,45 @@ import { listOwnReports, summarizeReports } from "@/services/reports";
 import { demoLatency } from "./demo";
 
 export type UserRole = "citizen" | "authority" | "admin";
+
+/**
+ * Safely retrieves the current authenticated Supabase user.
+ * Automatically attempts session recovery and token refresh if the access token has expired.
+ */
+export async function getAuthenticatedUser(): Promise<User | null> {
+  const supabase = getSupabaseBrowserClient();
+  try {
+    // 1. getSession in Supabase JS checks expiry and triggers token refresh if needed
+    if (typeof supabase.auth?.getSession === "function") {
+      const sessionResult = await supabase.auth.getSession();
+      if (sessionResult?.data?.session?.user && !sessionResult.error) {
+        return sessionResult.data.session.user;
+      }
+    }
+
+    // 2. If session in memory is missing or expired, attempt explicit refresh
+    if (typeof supabase.auth?.refreshSession === "function") {
+      const refreshResult = await supabase.auth.refreshSession();
+      if (refreshResult?.data?.user && !refreshResult.error) {
+        return refreshResult.data.user;
+      }
+      if (refreshResult?.data?.session?.user && !refreshResult.error) {
+        return refreshResult.data.session.user;
+      }
+    }
+
+    // 3. Direct getUser check (validates current session or mocked auth provider)
+    if (typeof supabase.auth?.getUser === "function") {
+      const userResult = await supabase.auth.getUser();
+      if (userResult?.data?.user && !userResult.error) {
+        return userResult.data.user;
+      }
+    }
+  } catch (err) {
+    console.warn("[auth] Session verification/refresh failed:", err);
+  }
+  return null;
+}
 
 // TODO: Connect Supabase Auth — list users and roles from the profiles table for admins only.
 export async function listUsers() {
@@ -27,13 +67,12 @@ export interface CurrentUser {
 }
 
 export async function getCurrentUser(): Promise<CurrentUser> {
-  const supabase = getSupabaseBrowserClient();
-  const { data: userData, error: userError } = await supabase.auth.getUser();
-  const user = userData.user;
-  if (userError || !user?.email) {
+  const user = await getAuthenticatedUser();
+  if (!user?.email) {
     throw new Error("You are not signed in.");
   }
 
+  const supabase = getSupabaseBrowserClient();
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("full_name, phone, avatar_url, role")

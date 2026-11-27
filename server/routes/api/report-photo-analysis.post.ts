@@ -1,4 +1,4 @@
-import { defineEventHandler, readBody, setResponseHeader, setResponseStatus } from "h3";
+import { defineEventHandler, getHeader, readBody, setResponseHeader, setResponseStatus } from "h3";
 import { z } from "zod";
 
 import { REPORT_IMAGE_BUCKET, REPORT_IMAGE_MAX_BYTES } from "../../../shared/report-photo";
@@ -30,8 +30,18 @@ export default defineEventHandler(async (event) => {
   setResponseHeader(event, "Cache-Control", "no-store");
   try {
     const supabase = createSupabaseServerClient(event);
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-    if (userError || !userData.user) throw new WastePhotoError("unauthorized");
+    let userData = (await supabase.auth.getUser()).data;
+    if (!userData?.user) {
+      const authHeader = getHeader(event, "authorization");
+      if (authHeader?.startsWith("Bearer ")) {
+        const token = authHeader.slice(7).trim();
+        const tokenResult = await supabase.auth.getUser(token);
+        if (tokenResult.data?.user) {
+          userData = tokenResult.data;
+        }
+      }
+    }
+    if (!userData?.user) throw new WastePhotoError("unauthorized");
     const userId = userData.user.id;
 
     const parsed = requestSchema.safeParse(await readBody(event).catch(() => null));

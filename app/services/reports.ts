@@ -1,5 +1,6 @@
 import { isValidCoordinate } from "@/lib/mapbox";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
+import { getAuthenticatedUser } from "./auth";
 import { listAuthorities, matchAuthorityForLocation } from "./authorities";
 import { REPORT_IMAGE_BUCKET } from "../../shared/report-photo";
 import {
@@ -200,13 +201,13 @@ export async function listMapReports(): Promise<MapReport[]> {
 }
 
 export async function listOwnReports(): Promise<WasteReport[]> {
+  const user = await getAuthenticatedUser();
+  if (!user) return [];
   const supabase = getSupabaseBrowserClient();
-  const { data: userData, error: userError } = await supabase.auth.getUser();
-  if (userError || !userData.user) throw new Error("Your session has expired. Please sign in again.");
   const { data, error } = await supabase
     .from("reports")
     .select(REPORT_SELECT)
-    .eq("user_id", userData.user.id)
+    .eq("user_id", user.id)
     .order("created_at", { ascending: false });
   if (error) throw new Error("Could not load your reports.");
   return toWasteReports((data ?? []) as unknown as ReportRow[]);
@@ -286,10 +287,10 @@ async function resolveCategoryId(category: WasteCategoryId): Promise<number> {
 }
 
 export async function submitReport(input: NewReportInput): Promise<WasteReport> {
-  const supabase = getSupabaseBrowserClient();
-  const { data: userData, error: userError } = await supabase.auth.getUser();
-  if (userError || !userData.user) throw new Error("Your session has expired. Please sign in again.");
+  const user = await getAuthenticatedUser();
+  if (!user) throw new Error("Please sign in to submit your waste report.");
 
+  const supabase = getSupabaseBrowserClient();
   const categoryId = await resolveCategoryId(input.category);
   const { data, error } = await supabase.rpc("submit_waste_report", {
     p_category_id: categoryId,
@@ -305,6 +306,9 @@ export async function submitReport(input: NewReportInput): Promise<WasteReport> 
   });
   const inserted = Array.isArray(data) ? data[0] : undefined;
   if (error || !inserted?.report_id || !inserted.report_number || !inserted.created_at) {
+    if (error?.message?.toLowerCase().includes("not_authenticated") || error?.message?.toLowerCase().includes("jwt")) {
+      throw new Error("Your session has expired. Please sign in again.");
+    }
     throw new Error("Your waste report could not be saved. Please try again.");
   }
 

@@ -1,4 +1,4 @@
-import { IconAlertOctagon, IconArrowLeft, IconArrowRight, IconCheck, IconCircleCheck, IconMapPin } from "@tabler/icons-react";
+import { IconAlertOctagon, IconArrowLeft, IconArrowRight, IconCheck, IconCircleCheck, IconLogin, IconMapPin, IconUserCircle } from "@tabler/icons-react";
 import { useMemo, useEffect, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router";
 
@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { formatReportLocation, getCategory, QUANTITY_OPTIONS, type ReportLocation, type WasteCategoryId, type WasteQuantity, type WasteReport } from "@/lib/waste";
 import { cn } from "@/lib/utils";
+import { getAuthenticatedUser } from "@/services/auth";
 import { submitReport } from "@/services/reports";
 import { uploadReportImage, validateReportImage } from "@/services/report-images";
 import { analyzeReportPhoto } from "@/services/waste-analysis";
@@ -46,10 +47,21 @@ export function ReportWizard() {
   const [analysisState, setAnalysisState] = useState<PhotoAnalysisState>("idle");
   const [analysis, setAnalysis] = useState<WasteAnalysis | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const uploadRun = useRef(0);
   const analysisRun = useRef(0);
   const categoryChosenByUser = useRef(false);
   const submitInFlight = useRef(false);
+
+  useEffect(() => {
+    let active = true;
+    getAuthenticatedUser().then((user) => {
+      if (active) setIsAuthenticated(Boolean(user));
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const previewUrl = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
   useEffect(() => {
@@ -93,12 +105,17 @@ export function ReportWizard() {
         if (run !== uploadRun.current) return;
         setUploadedPath(path);
         setUploadState("done");
+        setIsAuthenticated(true);
         runAnalysis(path);
       },
       (error: unknown) => {
         if (run !== uploadRun.current) return;
-        setPhotoError(error instanceof Error ? error.message : "Photo upload failed. Please try again.");
+        const msg = error instanceof Error ? error.message : "Photo upload failed. Please try again.";
+        setPhotoError(msg);
         setUploadState("error");
+        if (msg.includes("sign in") || msg.includes("session")) {
+          setIsAuthenticated(false);
+        }
       },
     );
   };
@@ -269,6 +286,22 @@ export function ReportWizard() {
 
   return (
     <div className="space-y-6">
+      {isAuthenticated === false && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-2xl border border-border/80 bg-card p-4 text-sm text-foreground shadow-sm">
+          <div className="flex items-center gap-2.5">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand/10 text-brand">
+              <IconUserCircle size={20} />
+            </span>
+            <p className="text-sm text-muted-foreground">
+              You are browsing as a guest. <strong className="text-foreground">Please sign in</strong> to upload photos, report waste, and track problem resolutions.
+            </p>
+          </div>
+          <Button asChild size="sm" className="shrink-0 font-medium bg-brand text-brand-foreground hover:bg-brand/90">
+            <Link to="/login?next=/report">Sign In</Link>
+          </Button>
+        </div>
+      )}
+
       <nav aria-label="Report progress">
         <ol className="flex items-center gap-2">
           {STEPS.map((label, index) => {

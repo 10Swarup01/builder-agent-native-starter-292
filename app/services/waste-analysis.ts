@@ -1,3 +1,4 @@
+import { getSupabaseBrowserClient } from "@/lib/supabase";
 import type { WasteCategoryId } from "@/lib/waste";
 import {
   AI_CATEGORY_TO_WASTE_ID,
@@ -17,11 +18,22 @@ const ANALYSIS_TIMEOUT_MS = 45_000;
 const FALLBACK_MESSAGE = "AI photo analysis is unavailable right now. You can still choose the category yourself.";
 
 export async function analyzeReportPhoto(imagePath: string): Promise<PhotoAnalysisResult> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  try {
+    const supabase = getSupabaseBrowserClient();
+    const { data } = await supabase.auth.getSession();
+    if (data?.session?.access_token) {
+      headers["Authorization"] = `Bearer ${data.session.access_token}`;
+    }
+  } catch {
+    // Session token retrieval is best-effort; cookie is also used
+  }
+
   let response: Response;
   try {
     response = await fetch("/api/report-photo-analysis", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ imagePath }),
       signal: AbortSignal.timeout(ANALYSIS_TIMEOUT_MS),
     });

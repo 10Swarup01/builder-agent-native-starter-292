@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const supabase = vi.hoisted(() => ({
-  auth: { getUser: vi.fn() },
+  auth: {
+    getUser: vi.fn(),
+    getSession: vi.fn(),
+    refreshSession: vi.fn(),
+  },
   from: vi.fn(),
   rpc: vi.fn(),
   storage: { from: vi.fn() },
@@ -27,7 +31,9 @@ const input: NewReportInput = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  supabase.auth.getUser.mockResolvedValue({ data: { user: { id: "user-1" } }, error: null });
+  supabase.auth.getSession.mockResolvedValue({ data: { session: { user: { id: "user-1", email: "citizen@example.com" } } }, error: null });
+  supabase.auth.getUser.mockResolvedValue({ data: { user: { id: "user-1", email: "citizen@example.com" } }, error: null });
+  supabase.auth.refreshSession.mockResolvedValue({ data: { user: { id: "user-1", email: "citizen@example.com" } }, error: null });
   supabase.from.mockImplementation(() => ({
     select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { id: 1 }, error: null }) }) }),
   }));
